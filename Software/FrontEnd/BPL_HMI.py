@@ -32,6 +32,24 @@ from PySide6.QtWidgets import (
 # 0 - 100 open percentage
 # %34.55 = 0.3455
 
+#assign these I think
+PacketSend = [
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+    ["GCV",0.00],
+]
+
 GCV = 0.00 # GN2 Check Valve
 GPR = 0.00 #GN2 Pressure Regulator
 GBS = 0.00 #GN2 Back Pressurizing Solenoid
@@ -50,3 +68,5 @@ Ksi_2GAL = 0.0000 # 2Ksi tank fill in gallons
 ERT = 0.0000 # Ethanol Run tank fill in gallons
 N20RUN = 0.0000 # N20 run tank fill in gallons
 N20KBOT = 0.0000 # N20 K-Bottle tank fill in gallons
+
+print(PacketSend.__len__)
