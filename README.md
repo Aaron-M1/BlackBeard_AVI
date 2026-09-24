@@ -1,19 +1,8 @@
 # BlackBeard_AVI
 Avionics hardware + software for 2026 BPL2
 
-(Software unlicensed as of now)
+Main Program:
+    Aaron Mathews
+    Parker Pevehouse
 
-Doccumentation:
-GCV GN2 Check Valve
-GPR GN2 Pressure Regulator
-GBS GN2 Back Pressurizing Solenoid
-GPRV GN2 Pressure Relief Valve
-FPS Fuel Purging Solenoid
-FMV Fuel Main Valve
-FCV Fuel Check Valve
-OMV Oxidizer Main Valve
-OCV Oxidizer Check Valve
-CCV Chiller Check Valve
-ORIPS Oxidizer Run Tank Purge Solenoid
-CPS Chiller Purge Solenoid
-CMS Chiller Main Solenoid
+## Below would generally contain a list of doccumentation on how this whole system works
