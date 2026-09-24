@@ -35,19 +35,18 @@ from PySide6.QtWidgets import (
 #assign these I think
 PacketSend = [
     ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
-    ["GCV",0.00],
+    ["GPR",0.00],
+    ["GBS",0.00],
+    ["GPRV",0.00],
+    ["FPS",0.00],
+    ["FMV",0.00],
+    ["FCV",0.00],
+    ["OMV",0.00],
+    ["OCV",0.00],
+    ["CCV",0.00],
+    ["ORIPS",0.00],
+    ["CPS",0.00],
+    ["CMS",0.00],
 ]
 
 GCV = 0.00 # GN2 Check Valve
