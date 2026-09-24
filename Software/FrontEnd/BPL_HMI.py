@@ -68,4 +68,4 @@ ERT = 0.0000 # Ethanol Run tank fill in gallons
 N20RUN = 0.0000 # N20 run tank fill in gallons
 N20KBOT = 0.0000 # N20 K-Bottle tank fill in gallons
 
-print(PacketSend.__len__)
+print()
