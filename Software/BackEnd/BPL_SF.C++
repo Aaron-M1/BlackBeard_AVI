@@ -28,10 +28,10 @@ double ORIPS = 0.00; //Oxidizer Run Tank Purge Solenoid
 double CPS = 0.00; //Chiller Purge Solenoid
 double CMS = 0.00; //Chiller Main Solenoid
 
-double Ksi_2GAL = 0.0000; // 2Ksi tank fill in gallons
-double ERT = 0.0000; // Ethanol Run tank fill in gallons
-double N20RUN = 0.0000; // N20 run tank fill in gallons
-double N20KBOT = 0.0000; // N20 K-Bottle tank fill in gallons
+double Ksi_2GAL = 0.0000; // 2Ksi tank fill in Liters
+double ERT = 0.0000; // Ethanol Run tank fill in Liters
+double N20RUN = 0.0000; // N20 run tank fill in Liters
+double N20KBOT = 0.0000; // N20 K-Bottle tank fill in Liters
 
 //-TRIPS-//
 bool KSI_Trip = false; //If true: KSI Sensors not obtaining readings

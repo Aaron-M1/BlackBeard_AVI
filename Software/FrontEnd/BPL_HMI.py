@@ -63,9 +63,11 @@ ORIPS = 0.00 #Oxidizer Run Tank Purge Solenoid
 CPS = 0.00 #Chiller Purge Solenoid
 CMS = 0.00 #Chiller Main Solenoid
 
-Ksi_2GAL = 0.0000 # 2Ksi tank fill in gallons
-ERT = 0.0000 # Ethanol Run tank fill in gallons
-N20RUN = 0.0000 # N20 run tank fill in gallons
-N20KBOT = 0.0000 # N20 K-Bottle tank fill in gallons
+Ksi_2GAL = 0.0000 # 2Ksi tank fill in Liters
+ERT = 0.0000 # Ethanol Run tank fill in Liters
+N20RUN = 0.0000 # N20 run tank fill in Liters
+N20KBOT = 0.0000 # N20 K-Bottle tank fill in Liters
+
+
 
 print()
