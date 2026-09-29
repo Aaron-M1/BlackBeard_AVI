@@ -49,19 +49,24 @@ PacketSend = [
     ["CMS",0.00],
 ]
 
-GCV = 0.00 # GN2 Check Valve
-GPR = 0.00 #GN2 Pressure Regulator
-GBS = 0.00 #GN2 Back Pressurizing Solenoid
-GPRV = 0.00 #GN2 Pressure Relief Valve
-FPS = 0.00 #Fuel Purging Solenoid
-FMV = 0.00 #Fuel Main Valve
-FCV = 0.00 #Fuel Check Valve
-OMV = 0.00 #Oxidizer Main Valve
-OCV = 0.00 #Oxidizer Check Valve
-CCV = 0.00 #Chiller Check Valve
-ORIPS = 0.00 #Oxidizer Run Tank Purge Solenoid
-CPS = 0.00 #Chiller Purge Solenoid
-CMS = 0.00 #Chiller Main Solenoid
+# True is Open / False is Close
+
+gc_check = False # GN2 Check Valve
+gb_solenoid = False #GN2 Back Pressurizing Solenoid
+fuel_purge = False #Fuel Purging Solenoid
+fuel_main = False #Fuel Main Valve
+ox_main = False #Oxidizer Main Valve
+ORIPS = False #Oxidizer Run Tank Purge Solenoid
+CPS = False #Chiller Purge Solenoid
+CMS = False #Chiller Main Solenoix 
+
+p1 = 0.00 # NEEDS DEFINING
+p2 = 0.00 # NEEDS DEFINING
+p3 = 0.00 # NEEDS DEFINING
+p4 = 0.00 # NEEDS DEFINING
+p5 = 0.00 # NEEDS DEFINING
+p6 = 0.00 # NEEDS DEFINING
+p7 = 0.00 # NEEDS DEFINING
 
 Ksi_2GAL = 0.0000 # 2Ksi tank fill in Liters
 ERT = 0.0000 # Ethanol Run tank fill in Liters
