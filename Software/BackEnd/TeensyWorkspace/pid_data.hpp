@@ -12,13 +12,13 @@ class pid_data {
 
     private:
 
-        //-GLOBAL INITIALIZE-//
+        //GLOBAL INITIALIZE
         std::string Status = "Safe"; // 
         bool Interlock = true; //Only becomes false when in firing mode and ready to launch
 
-        // GN2 Check Valve
-        bool gcv_open = false;
-        bool gpr_open = false;  // GN2 Pressure Regulator
+        //VALVE BOOLEANS
+        bool gcv_open = false; // GN2 Check Valve
+        bool gpr_open = false; // GN2 Pressure Regulator
         bool gbp_open = false; //GN2 Back Pressurizing Solenoid
         bool fps_open = false; //Fuel Purging Solenoid
         bool fmv_open = false; //Fuel Main Valve
@@ -30,12 +30,13 @@ class pid_data {
         bool cps_open = false; //Chiller Purge Solenoid
         bool cms_open = false; //Chiller Main Solenoid
 
+        //TANK VOLUMES
         double ksi_gallons = 0.0000; // 2Ksi tank fill in gallons
         double ert_gallons = 0.0000; // Ethanol Run tank fill in gallons
         double n_run_gallons = 0.0000; // N20 run tank fill in gallons
         double n_kbottle_gallons = 0.0000; // N20 K-Bottle tank fill in gallons
 
-        //-TRIPS-// -Boolvalue or status that activates an alarm or a unsafe condition alert (eg. low pressure trip, leak trip)
+        //CHECK-ALERT SYSTEMS
         bool ksi_online = false; //If true: KSI Sensors not obtaining readings
         bool ert_online = false; //If true: ERT Sensors not obtaining readings
         bool n_run_online = false; //If true: N20RUN Sensors not obtaining readings
