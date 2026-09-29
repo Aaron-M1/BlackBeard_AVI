@@ -13,7 +13,7 @@ class pid_data {
     private:
 
         //GLOBAL INITIALIZE
-        std::string Status = "Safe"; // 
+        std::string status = "Safe"; // 
         bool Interlock = true; //Only becomes false when in firing mode and ready to launch
 
         //VALVE BOOLEANS
