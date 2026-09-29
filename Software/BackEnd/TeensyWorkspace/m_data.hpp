@@ -1,15 +1,14 @@
-#include <iostream>
 # ifndef m_data
 # define m_data
 
 class m_data {
 
     private:
-    
+
         //Trip = boolvalue or status that activates an alarm or a unsafe condition alert (eg. low pressure trip, leak trip)
 
         //-GLOBAL INITIALIZE-//
-        string Status = "Safe"; // 
+        std::string Status = "Safe"; // 
         bool Interlock = true; //Only becomes false when in firing mode and ready to launch
 
         // GN2 Check Valve
