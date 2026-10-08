@@ -30,11 +30,23 @@ class pid_data {
         bool cps_open = false; //Chiller Purge Solenoid
         bool cms_open = false; //Chiller Main Solenoid
 
+        //PRESSURE TRANDUCER VALUES
+        double pressure_1 = 0.0; //TODO: Figure out what valves pressure is being read from
+        double pressure_2 = 0.0; //TODO: Figure out what valves pressure is being read from
+        double pressure_3 = 0.0; //TODO: Figure out what valves pressure is being read from
+        double pressure_4 = 0.0; //TODO: Figure out what valves pressure is being read from
+        double pressure_5 = 0.0; //TODO: Figure out what valves pressure is being read from
+        double pressure_6 = 0.0; //TODO: Figure out what valves pressure is being read from
+        double pressure_7 = 0.0; //TODO: Figure out what valves pressure is being read from
+
+        //THERMOCOUPLE VALUES
+        double n_thermocouple = 0.0; //Temperature from N20 run tank
+
         //TANK VOLUMES
-        double ksi_gallons = 0.0000; // 2Ksi tank fill in gallons
-        double ert_gallons = 0.0000; // Ethanol Run tank fill in gallons
-        double n_run_gallons = 0.0000; // N20 run tank fill in gallons
-        double n_kbottle_gallons = 0.0000; // N20 K-Bottle tank fill in gallons
+        double ksi_volume = 0.0000; // 2Ksi tank fill in gallons or liters
+        double ert_volume = 0.0000; // Ethanol Run tank fill in gallons or liters
+        double n_run_volume = 0.0000; // N20 run tank fill in gallons or liters
+        double n_kbottle_volume = 0.0000; // N20 K-Bottle tank fill in gallons or liters
 
         //CHECK-ALERT SYSTEMS
         bool ksi_online = false; //If true: KSI Sensors not obtaining readings
@@ -42,6 +54,9 @@ class pid_data {
         bool n_run_online = false; //If true: N20RUN Sensors not obtaining readings
         bool n_kbottle_online = false; //If true: N20KBOT Sensors not obtaining readings
     public:
+
+        void setGCV(bool open);
+        void setGPR(bool open);
 
 
 
