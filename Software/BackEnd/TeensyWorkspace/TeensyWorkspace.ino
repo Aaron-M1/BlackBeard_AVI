@@ -1,5 +1,7 @@
 #include "pid_data.hpp"
 
+bool ishigh = False
+
 const uint8_t solenoidPin = LED_BUILTIN;
 pid_data my_pid_data;
 bool testing = false;
@@ -15,3 +17,14 @@ void loop() {
   cout << testing << endl;
 }
 
+void togglesolenoid(pin)
+{
+  if (ishigh == false){
+    digitalWrite(pin, HIGH)
+    ishigh = true
+  }
+  else{
+  digitalWrite(pin, LOW)
+  ishigh = false
+  }
+}
