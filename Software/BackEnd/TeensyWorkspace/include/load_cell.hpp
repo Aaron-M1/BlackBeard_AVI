@@ -15,7 +15,7 @@ class load_cell {
 
         long readLoadCell();
         float readLoadCellGrams();
-        
+        float readLoadCellNewtons();
         bool isLoadCellReady();
 
     private:
