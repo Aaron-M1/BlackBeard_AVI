@@ -14,6 +14,8 @@ class load_cell {
         ~load_cell(void);
 
         long readLoadCell();
+        float readLoadCellGrams();
+        
         bool isLoadCellReady();
 
     private:

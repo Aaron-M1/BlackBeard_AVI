@@ -29,3 +29,9 @@ long load_cell::readLoadCell() {
     long reading = scale.read(); // Process the reading as needed
     return reading;
 }
+
+float load_cell::readLoadCellGrams() {
+    long reading = scale.read() * 266;
+    float grams = float(reading) / 100000.0; // Convert to grams (may need error tweaking)
+    return grams;
+}
