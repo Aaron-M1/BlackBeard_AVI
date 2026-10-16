@@ -1,6 +1,8 @@
 #include "pid_data.hpp"
+#include "solenoid.hpp"
 
 bool ishigh = False
+
 
 const uint8_t solenoidPin = LED_BUILTIN;
 pid_data my_pid_data;
@@ -14,7 +16,7 @@ void setup() {
 }
 
 void loop() {
-  cout << testing << endl;
+  cout << testing << endl;  
 }
 
 void togglesolenoid(pin)

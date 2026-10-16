@@ -11,10 +11,17 @@ See P&ID.jpeg in drive for more info
 
 class solenoid {
     public:
+        solenoid(uint8_t pin, bool default_state);
+        ~solenoid(void);
+
+        void togglesolenoid();
+        void setState(bool state);
+        uint8_t getPin();
     
     private:
+        bool isOpen;
+        bool defaultState;
+        const uint8_t solenoidPin;
 
-    bool isOpen;
-    const uint8_t solenoidPin;
 
 };
