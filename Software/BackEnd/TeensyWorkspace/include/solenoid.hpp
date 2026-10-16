@@ -4,9 +4,8 @@
 #include <cstdint>
 /*-------------------------------------------------------
 @BPL-2, Avionics
-This is the p&id data file
-Contains variables for valves, tanks, and sensors
-See P&ID.jpeg in drive for more info
+This is the solenoid header file
+Creates a solenoid object to use in foreign files
 ----------------------------------------------------------*/
 
 class solenoid {
@@ -16,12 +15,14 @@ class solenoid {
 
         void togglesolenoid();
         void setState(bool state);
+
         uint8_t getPin();
+        bool getState();
     
     private:
         bool isOpen;
         bool defaultState;
-        const uint8_t solenoidPin;
+        const int SOLENOID_PIN;
 
 
 };
