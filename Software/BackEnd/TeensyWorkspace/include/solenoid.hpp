@@ -22,7 +22,7 @@ class solenoid {
     private:
         bool isOpen;
         bool defaultState;
-        const int SOLENOID_PIN;
+        uint8_t SOLENOID_PIN;
 
 
 };
