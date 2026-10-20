@@ -18,6 +18,8 @@ import ctypes #c++ library and calls
 import numpy as np #c++ foriegn function interface
 import cffi #c++ array passing
 import serial
+import os
+import time
 
 from PySide6.QtCore import QDateTime, QTimer, Qt
 from PySide6.QtGui import QColor, QFont, QPalette
@@ -50,6 +52,22 @@ n2o_temp = 0.00
 unit_state = "safe" # defined statuses from BPL reqs.
 code_state = "idle" # extraneous status layers for inter-communicative code operations (idle / active / actor)
 
+def CreateLog():
+    from datetime import datetime
+    now = datetime.now()
+    timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
+
+    filepath = os.path.join(os.path.expanduser('~'), 'OneDrive', 'Desktop', 'BlackBeard_Logs', f'{timestamp}.txt')
+    dir_path = os.path.dirname(filepath)
+    
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    with open(filepath, "a") as f:
+        f.write(timestamp)
+        f.write("This is a new log entry. May the wind guide your hand\n")
+        pass
+
 def iSend(itype, com1, com2, com3, com4): # C++ Communicator Function
     if program_debug == True: print(itype, com1, com2, com3, com4)
 
@@ -73,5 +91,4 @@ def local_State(pa_un_State, pa_co_State, pre_req):
         if pre_req == None: return 
         else: 
             iSend("state_recieve", "safe")
-        
         
