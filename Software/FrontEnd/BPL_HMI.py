@@ -29,9 +29,11 @@ from PySide6.QtCore import QDateTime, QTimer, Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget, QCheckBox, QDialog, QButtonGroup, QToolButton, QListView,)
 
-#//--DEBUG / EXPERIMENTS--//
+#//--DEBUG / EXPERIMENTS--// [WARNING! IF ANY EXPERIMENT IS ON, THE ENGINE CANNOT FIRE!]
 program_debug = True
-test_express_Experiment = True
+test_express_Experiment = False # Creates mock log files
+Config_Party_Experiment = False # Config file playground
+SetUp_Experiment = False # More for utility, adds the proper logging directory to your device (make true → run program → make false)
 
 # Triggers Time Start
 PROGRAM_START = time.perf_counter()
@@ -117,6 +119,7 @@ def init():
 
     #opens experiments
     if test_express_Experiment == True: test_express()
+    if SetUp_Experiment == True: CreateLog()
 
 def local_State(pa_un_State, pa_co_State, pre_req):
     unit_state = str.lower(pa_un_State)
