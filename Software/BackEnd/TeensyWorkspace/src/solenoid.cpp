@@ -21,7 +21,7 @@ void solenoid::togglesolenoid()
     isOpen = true;
   }
   else{
-  digitalWrite(SOLENOID_PIN, LOW);
+  digitalWrite(SOLENOID_PIN, LOW); 
   isOpen = false;
   }
 }
