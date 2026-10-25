@@ -31,7 +31,11 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QGridLayout, QGr
 
 #//--DEBUG / EXPERIMENTS--// [WARNING! IF ANY EXPERIMENT IS ON, THE ENGINE CANNOT FIRE!]
 program_debug = True
-test_express_Experiment = False # Creates mock log files
+Experiments = { # New experiment controller (not yet implimented)
+    "Config_Party" : False,
+    "Test_Express" : False
+}
+test_express_Experiment = True # Creates mock log files
 Config_Party_Experiment = False # Config file playground
 SetUp_Experiment = False # More for utility, adds the proper logging directory to your device (make true → run program → make false)
 
@@ -138,7 +142,6 @@ def test_express(): #like chicken express but for testing
     waits = 0.02
     period = 1
     for i in range(testlimit):
-        # Generates a random integer from 1 to 15 (inclusive)
         gen = random.random()*25
         ncop = ll_template.copy()
         ncop["T"] = time_thread('runtime')
