@@ -5,7 +5,7 @@
 
 /*-------------------------------------------------------
 @BPL-2, Avionics
-This is the p&id data file
+This is the p&id header file
 Contains variables for valves, tanks, and sensors
 See P&ID.jpeg in drive for more info
 ----------------------------------------------------------*/
