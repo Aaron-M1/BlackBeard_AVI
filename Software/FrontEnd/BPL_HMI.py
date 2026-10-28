@@ -101,7 +101,6 @@ def receiver(): # Return string and figure and parse string returned from functi
 
 # --- Utility Functions ---
 def time_thread(tstype: str) -> str:
-    """Returns dynamic time string formatting."""
     tst = tstype.lower()
 
     if tst == "runtime":
@@ -138,7 +137,6 @@ def create_log() -> Path:
 def i_send(itype: str, *args) -> None:
     if PROGRAM_DEBUG:
         print(f"[COMM] {itype}:", *args)
-
 
 def local_state(
     pa_un_state: str, pa_co_state: str, pre_req: str | None = None
@@ -182,3 +180,17 @@ def init():
 # --- Execution Entry ---
 if __name__ == "__main__":
     init()
+
+"""
+'data or commands'
+String format:
+
+Sensor data:
+
+[name of sensor]:[value]
+
+Commands:
+
+command:[command_type]
+
+"""
