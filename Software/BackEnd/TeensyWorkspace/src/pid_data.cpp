@@ -1,6 +1,11 @@
 #include "pid_data.hpp"
 
-
+/*-------------------------------------------------------
+@BPL-2, Avionics
+This is the p&id header file
+Defines variables for valves, tanks, and sensors
+See P&ID.jpeg in drive for more info
+----------------------------------------------------------*/
 
 pid_data::pid_data(void) {
 
