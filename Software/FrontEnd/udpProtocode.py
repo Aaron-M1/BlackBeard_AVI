@@ -1,8 +1,8 @@
 import socket
 import threading
 #vibecoded here too
-HOST, PORT = "192.168.1.100", 5000
-
+HOST, PORT = "127.0.0.1", 5000
+print(f"Connecting to {HOST}:{PORT}")
 sock = socket.create_connection((HOST, PORT))
 
 def receiver():
