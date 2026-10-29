@@ -9,77 +9,131 @@
 # V1.00.00  :  9/29/2026     
 
 # # Everett mitchell was caught playing mario kart wii in the student center at 9/30/2026 at 9:29 AM                                                                                                                           
-
 # Standard Libraries (No installation required)
+from __future__ import annotations # importing the future of the universe to run entirely on your laptop...
 import math
 import mailbox
 import os
 import random
 import sys
 import time
-import ctypes  # C Foreign Function Interface for loading C DLLs/shared objects
+import socket
+import threading
+import ctypes
+import random
+import time
+import tkinter as tk
+from pathlib import Path
+from tkinter import messagebox
+from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from datetime import datetime
+from PySide6.QtCore import QDateTime, QTimer, Qt
+from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget, QCheckBox, QDialog, QButtonGroup, QToolButton, QListView,)
 
 # # Third-party packages (Install via: pip install numpy cffi pyserial)
 # import numpy as np  # Fast numerical computation and array handling
 # import cffi         # C Foreign Function Interface (alternative to ctypes)
 # import serial       # Serial communication library (installed as pyserial)
 
-from PySide6.QtCore import QDateTime, QTimer, Qt
-from PySide6.QtGui import QColor, QFont, QPalette
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMainWindow, QPushButton, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget, QCheckBox, QDialog, QButtonGroup, QToolButton, QListView,)
-
-#//--DEBUG / EXPERIMENTS--// [WARNING! IF ANY EXPERIMENT IS ON, THE ENGINE CANNOT FIRE!]
-program_debug = True
-Experiments = { # New experiment controller (not yet implimented)
-    "Config_Party" : False,
-    "Test_Express" : False
-}
-test_express_Experiment = True # Creates mock log files
-Config_Party_Experiment = False # Config file playground
-SetUp_Experiment = False # More for utility, adds the proper logging directory to your device (make true → run program → make false)
-
-# Triggers Time Start
+# --- Global Configuration & Experiments ---
+PROGRAM_DEBUG = True
 PROGRAM_START = time.perf_counter()
 
-#//--Valves--//
-gc_check = False # GN2 Check Valve
-gb_solenoid = False #GN2 Back Pressurizing Solenoid
-fuel_purge = False #Fuel Purging Solenoid
-fuel_main = False #Fuel Main Valve
-ox_main = False #Oxidizer Main Valve
-ORIPS = False #Oxidizer Run Tank Purge Solenoid
-CPS = False #Chiller Purge Solenoid
-CMS = False #Chiller Main Solenoid
+# ========== define directory =============
+BASE_DIR = Path.home() / "Desktop" / "Blinn Propulsion Labs"
 
-#//--Press & Thermo--//
-gpressure_press = 0.00
-k_bottle_press = 0.00
-chiller_press = 0.00
-e_run_press = 0.00
-n2o_press = 0.00
-Fuel_c_press = 0.00
-Oxi_c_press = 0.00
-n2o_temp = 0.00
+#//--DEBUG / EXPERIMENTS--// [WARNING! IF ANY EXPERIMENT IS ON, THE ENGINE CANNOT FIRE!]
+EXPERIMENTS = {
+    "Config_Party": False,  # (unused so far)
+    "Test_Express": False,  # Creates mock log files
+    "SetUp": False,  # Utility: creates logging directory structure + a log
+    "Launch_UI": True,  # Opens the (temporary) HMI window
+}
 
-#//--DatRets --//
-lcell_a = 0.00
-lcell_b = 0.00
-lcell_c = 0.00
+# --- State & Telemetry Structures ---
+@dataclass
+class ValveState:
+    gc_check: bool = False  # GN2 Check Valve
+    gb_solenoid: bool = False  # GN2 Back Pressurizing Solenoid
+    fuel_purge: bool = False  # Fuel Purging Solenoid
+    fuel_main: bool = False  # Fuel Main Valve
+    ox_main: bool = False  # Oxidizer Main Valve
+    ORIPS: bool = False  # Oxidizer Run Tank Purge Solenoid
+    CPS: bool = False  # Chiller Purge Solenoid
+    CMS: bool = False  # Chiller Main Solenoid
 
-#//--Local Vars--//
-runlogs = False
-kstart = False
-unit_state = "safe" # defined statuses from BPL reqs.
-code_state = "idle" # extraneous status layers for inter-communicative code operations (idle / active / actor)
-ll_template = {"T":0, "A":"Action here"}
-local_logs = [] # 
+    def reset(self) -> None:
+        for f in fields(self):
+            setattr(self, f.name, False)
 
-def time_thread(tstype):
+@dataclass
+class TelemetryData:
+    gpressure_press: float = 0.00
+    k_bottle_press: float = 0.00
+    chiller_press: float = 0.00
+    e_run_press: float = 0.00
+    n2o_press: float = 0.00
+    fuel_c_press: float = 0.00
+    oxi_c_press: float = 0.00
+    n2o_temp: float = 0.00
+    lcell_a: float = 0.00
+    lcell_b: float = 0.00
+    lcell_c: float = 0.00
+
+@dataclass
+class SystemState:
+    runlogs: bool = False
+    kstart: bool = False
+    unit_state: str = "safe"  # defined statuses from BPL reqs.
+    code_state: str = "idle"  # extraneous status layers (idle / active / actor)
+
+@dataclass
+class EngineInfo:
+    engine_name: str = "Blackbeard 1"
+
+# Instantiate system components
+valves = ValveState()
+telemetry = TelemetryData()
+state = SystemState()
+engine = EngineInfo()
+local_logs: list[dict] = []
+
+# --- File System ---
+def engine_dir() -> Path:
+    return BASE_DIR / engine.engine_name
+
+def integrity_checker() -> Path:
+    """Creates the project folder structure (if missing) and returns its root."""
+    root = engine_dir()
+    for sub in ("configs", "logs", "program_files"):
+        (root / sub).mkdir(parents=True, exist_ok=True)
+    print(f"Folder structure ready at: {root}")
+    return root
+
+# --- Comms ---
+def receiver(sock: socket.socket) -> None:
+    """Reads 'name,value' lines from the Teensy and prints them."""
+    # makefile() gives line-based reads, so framing is handled for us
+    with sock.makefile("r") as stream:
+        for line in stream:
+            name, _, value = line.strip().partition(",")
+            try:
+                print(f"[from teensy] {name} = {float(value)}")
+            except ValueError:
+                print(f"[from teensy] bad line skipped: {line!r}")
+
+def i_send(itype: str, *args) -> None:
+    if PROGRAM_DEBUG:
+        print(f"[COMM] {itype}:", *args)
+
+
+# --- Utility Functions ---
+def time_thread(tstype: str) -> str:
     tst = tstype.lower()
 
-    if tst == 'runtime':
-        # Elapsed time since program start: MM:SS:mmm:uuu
+    if tst == "runtime":
         elapsed_us = int((time.perf_counter() - PROGRAM_START) * 1_000_000)
         minutes, rem = divmod(elapsed_us, 60_000_000)
         seconds, rem = divmod(rem, 1_000_000)
@@ -87,70 +141,132 @@ def time_thread(tstype):
         return f"{minutes:02d}:{seconds:02d}:{millis:03d}:{micros:03d}"
 
     now = datetime.now()
-    if tst == 'full':
-        return now.strftime('%Y-%m-%d_%H-%M-%S')
-    elif tst == 'mini':
-        return now.strftime('%S.%f')[:-3]
-    else:
-        return now.strftime('%H:%M:%S')
+    if tst == "full":
+        return now.strftime("%Y-%m-%d_%H-%M-%S")
+    if tst == "mini":
+        return now.strftime("%S.%f")[:-3]
+    return now.strftime("%H:%M:%S")
 
-def CreateLog():
-    totals = 0
-    timestamp = time_thread('full')
-    filepath = os.path.join(os.path.expanduser('~'), 'OneDrive', 'Desktop', 'BlackBeard_Logs', f'{timestamp}.txt')
-    dir_path = os.path.dirname(filepath)
-    
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
 
-    with open(filepath, "a") as f: #compile local logs
-        f.write(timestamp)
-        f.write("\nThis is a new log entry. May the wind guide your hand\n\n")
-        for entry in local_logs:
-            totals += 1
-            f.write(f"[{totals}] {entry}\n")
-        pass
+def create_log() -> Path:
+    """Compiles local log entries and writes to disk."""
+    timestamp = time_thread("full")
+    log_dir = engine_dir() / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    filepath = log_dir / f"{timestamp}.txt"
 
-def iSend(itype, com1, com2, com3, com4): # C++ Communicator Function
-    if program_debug == True: print(itype, com1, com2, com3, com4)
+    lines = [
+        timestamp,
+        "This is a new log entry. May the wind guide your hand\n",
+    ]
+    lines.extend(f"[{i + 1}] {entry}" for i, entry in enumerate(local_logs))
 
-def init():
-    global gc_check, gb_solenoid, fuel_purge, fuel_main, ox_main
-    global ORIPS, CPS, CMS, runlogs
-    gc_check = gb_solenoid = fuel_purge = fuel_main = False
-    ox_main = ORIPS = CPS = CMS = False
-    runlogs = True
+    filepath.write_text("\n".join(lines), encoding="utf-8")
+    return filepath
 
-    #opens experiments
-    if test_express_Experiment == True: test_express()
-    if SetUp_Experiment == True: CreateLog()
 
-def local_State(pa_un_State, pa_co_State, pre_req):
-    unit_state = str.lower(pa_un_State)
-    code_state = str.lower(code_state)
-    # Negligable backend logic under conversion
-    # if unit_state == "safe":
-    #     if pre_req == None: return 
-    #     else: 
-    #         iSend("state_recieve", unit_state)
-    # if unit_state == "firing":
-    #     iSend("state_recieve", unit_state)
-    #     kstart = True
-        
-def test_express(): #like chicken express but for testing
-    testlimit = 5000
-    waits = 0.02
-    period = 1
-    for i in range(testlimit):
-        gen = random.random()*25
-        ncop = ll_template.copy()
-        ncop["T"] = time_thread('runtime')
-        ncop["A"] = gen
-        local_logs.append(ncop)
-        # Pass ncop to your log function if required
-        time.sleep(random.random()/(3*period))
-        print(f"Working... ({i+1}/{testlimit})")
+def local_state(
+    pa_un_state: str, pa_co_state: str, pre_req: str | None = None
+) -> None:
+    """Updates unit and internal code state status flags."""
+    state.unit_state = pa_un_state.lower()
+    state.code_state = pa_co_state.lower()
+
+    if state.unit_state == "firing":
+        i_send("state_receive", state.unit_state)
+        state.kstart = True
+    elif state.unit_state == "safe" and pre_req is not None:
+        i_send("state_receive", state.unit_state)
+
+
+# --- TEMP UI (placeholder until the real control interface is built) ---
+def launch_ui() -> None:
+    """Temporary blank HMI: menu bar (File/View/Tools/Help) + a blank Monitor window."""
+    root = tk.Tk()
+    root.title(f"BPL HMI - {engine.engine_name}")
+    root.geometry("1000x650")
+
+    monitor_window: tk.Toplevel | None = None
+
+    def open_monitor() -> None:
+        nonlocal monitor_window
+        # If it's already open, just bring it forward instead of stacking copies
+        if monitor_window is not None and monitor_window.winfo_exists():
+            monitor_window.lift()
+            monitor_window.focus_force()
+            return
+        monitor_window = tk.Toplevel(root)
+        monitor_window.title("Monitor")
+        monitor_window.geometry("700x500")
+
+    def show_about() -> None:
+        messagebox.showinfo("About", "Blinn Propulsion Labs HMI\n(temporary UI)")
+
+    menubar = tk.Menu(root)
+
+    file_menu = tk.Menu(menubar, tearoff=0)
+    file_menu.add_command(label="Exit", command=root.destroy)
+    menubar.add_cascade(label="File", menu=file_menu)
+
+    view_menu = tk.Menu(menubar, tearoff=0)
+    view_menu.add_command(label="Monitor", command=open_monitor)
+    menubar.add_cascade(label="View", menu=view_menu)
+
+    tools_menu = tk.Menu(menubar, tearoff=0)
+    tools_menu.add_command(label="(nothing yet)", state="disabled")
+    menubar.add_cascade(label="Tools", menu=tools_menu)
+
+    help_menu = tk.Menu(menubar, tearoff=0)
+    help_menu.add_command(label="About", command=show_about)
+    menubar.add_cascade(label="Help", menu=help_menu)
+
+    root.config(menu=menubar)
+    root.mainloop()
+
+
+# --- Experiments ---
+def test_express() -> None:
+    test_limit = 500
+    period = 1.0
+    for i in range(test_limit):
+        local_logs.append({"T": time_thread("runtime"), "A": random.random() * 25})
+
+        # Dynamic sleep timing loop logic
+        time.sleep(random.random() / (3 * period))
+        print(f"Working... ({i + 1}/{test_limit})")
         period /= 0.95
-    CreateLog()
-    
-init() # comes last to establish all variables and functions before init
+    create_log()
+
+
+def init() -> None:
+    """Initializes rocket valve hardware and runs active experiments."""
+    valves.reset()
+    state.runlogs = True
+    integrity_checker()
+
+    # Execute active configuration experiments
+    if EXPERIMENTS.get("Test_Express"):
+        test_express()
+    if EXPERIMENTS.get("SetUp"):
+        create_log()
+
+
+# --- Execution Entry ---
+if __name__ == "__main__":
+    init()
+    if EXPERIMENTS.get("Launch_UI"):
+        launch_ui()
+
+"""
+'data or commands'
+String format:
+
+Sensor data:
+
+[name of sensor]:[value]
+
+Commands:
+
+command:[command_type]
+
+"""
