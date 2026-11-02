@@ -1,9 +1,10 @@
 import socket
 import threading
-#vibecoded here too
-HOST, PORT = "127.0.0.1", 5000
-print(f"Connecting to {HOST}:{PORT}")
-sock = socket.create_connection((HOST, PORT))
+
+def set_host(ip, port):
+    HOST, PORT = ip, port
+    print(f"Connecting to {HOST}:{PORT}")
+    sock = socket.create_connection((HOST, PORT))
 
 def receiver():
     # makefile() gives line-based reads, so framing is handled for us
