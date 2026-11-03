@@ -27,6 +27,9 @@ def connect(host,port,retry_delay=1, connect_timeout=3, max_connection_attempts=
 sock = connect(host, port)
 # >>>>>>> fc43f9638533b1abfe82ee72598b171a244ba143
 
+def setHost(ip):
+    HOST = ip
+
 def receiver():
     for line in sock.makefile("r"):
         name, _, value = line.strip().partition(",")

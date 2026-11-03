@@ -1,4 +1,4 @@
-#include "udp_protocol.hpp"
+#include "udp_server.hpp"
 
 /*-------------------------------------------------------
 @BPL-2, Avionics
@@ -11,14 +11,12 @@ udp_protocol::udp_protocol(uint16_t port) //Constructor
     peerPort = 0;
     peerKnown = false;
     setpoint = 0.0f;
-    commandCallback = nullptr;
 }
 
 udp_protocol::~udp_protocol(void) //Destructor
 {
-    //TODO: Add code to kill the connection
+    udp.stop();
 }
-
 
 void udp_protocol::begin(IPAddress ip, IPAddress mask, IPAddress gateway) //Initializes the UDP object with needed params
 {
@@ -26,11 +24,11 @@ void udp_protocol::begin(IPAddress ip, IPAddress mask, IPAddress gateway) //Init
     udp.begin(localPort);
 }
 
-void udp_protocol::update() //Must run in the loop func, checks for incoming packets and handles them, also sends outgoing packets
+udp_message udp_protocol::update() //Must run in the loop func, checks for incoming packets and handles them, also sends outgoing packets
 {
     // One UDP packet is one whole message, so no framing buffer is needed
     int size = udp.parsePacket();
-    if (size <= 0) return;
+    if (size <= 0) return udp_message("", 0.0f);
 
     // Remember who sent it so send() knows where to stream data
     peerIp = udp.remoteIP();
@@ -44,7 +42,12 @@ void udp_protocol::update() //Must run in the loop func, checks for incoming pac
 
     char *nl = strpbrk(buf, "\r\n");
     if (nl) *nl = '\0';
-    handleLine(buf);
+
+    std::string name = "blank";
+    float value = 0.0f;
+
+    handleLine(buf, name, value);
+    return udp_message(name, value);
 }
 
 void udp_protocol::send(const char *name, float value) //sends packets to verified clients
@@ -55,33 +58,23 @@ void udp_protocol::send(const char *name, float value) //sends packets to verifi
     udp.endPacket();
 }
 
-void udp_protocol::onCommand(command_callback callback) //Unneeded for now, we'll probably excute commands in the workspace
-{
-    commandCallback = callback;
-}
-
-float udp_protocol::getSetpoint() //useless, delete
-{
-    return setpoint;
-}
-
 bool udp_protocol::hasPeer() //checks if someone is on the line
 {
     return peerKnown;
 }
 
-void udp_protocol::handleLine(char *line) //Parses incoming packets and executes commands, or sends an ack if the command is a setpoint
+void udp_protocol::handleLine(char *line, std::string& name, float& value) //Parses incoming packets and executes commands, or sends an ack if the command is a setpoint
 {
-    char *comma = strchr(line, ',');
-    if (!comma) return;                          // malformed
-    *comma = '\0';
-    String name = line;
-    float value = atof(comma + 1);
+    char *colon = strchr(line, ':');
+    if (!colon) return udp_message("", 0.0f); // malformed
+    *colon = '\0';
+    std::string name = line;
+    float value = atof(colon + 1);
 
-    if (name == "setpoint") {
-        setpoint = value;
-        send("ack_setpoint", setpoint);
-    } else if (commandCallback) {
-        commandCallback(name, value);
-    }
+    // if (name == "setpoint") {
+    //     setpoint = value;
+    //     send("ack_setpoint", setpoint);
+    // } else if (commandCallback) {
+    //     commandCallback(name, value);
+    // }
 }

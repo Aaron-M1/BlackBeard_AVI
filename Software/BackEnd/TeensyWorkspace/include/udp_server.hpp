@@ -2,6 +2,7 @@
 #pragma once
 #include <Arduino.h>
 #include <QNEthernet.h>
+#include "udp_message.hpp"
 /*-------------------------------------------------------
 @BPL-2, Avionics
 This is the udp protocol header file
@@ -17,16 +18,15 @@ class udp_protocol {
         ~udp_protocol(void);
 
         void begin(IPAddress ip, IPAddress mask, IPAddress gateway);
-        void update();   // call every loop(): reads at most one packet, never blocks
+        udp_message update();   // call every loop(): reads at most one packet, never blocks
 
         void send(const char *name, float value);
         void onCommand(command_callback callback);
 
-        float getSetpoint();
         bool hasPeer();
 
     private:
-        void handleLine(char *line);
+        void handleLine(char *line, std::string& name, float& value);
 
         qindesign::network::EthernetUDP udp;
         uint16_t localPort;
@@ -35,4 +35,6 @@ class udp_protocol {
         bool peerKnown;
         float setpoint;
         command_callback commandCallback;
+
+        udp_message message;
 };
