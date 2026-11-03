@@ -12,6 +12,14 @@
 # God rewards you for not ending it, so embrace.                                                                                                                           
 # Standard Libraries (No installation required)
 
+# Todo:
+# 1. Add options in settings to change host and socket/port
+# 2. Add button for connection testing
+# 3. Add segmentation in settings for software / hardware settings & add warnings for changing important stuff and add a 
+# lock to prevent those changes unless the user is absolutley sure of it. 
+# 4. Fix the weird visual caused by resizing the Window
+# 5. Make the GNC check valve not a valve you can control, this is another check valve.
+
 from __future__ import annotations
 import random
 import socket
@@ -757,8 +765,6 @@ def launch_ui() -> None:
     settings.manual_control = enabled
     pid_canvas.set_controls_enabled(enabled)
     manual_label.config(text=f"MANUAL CONTROL: {'ON' if enabled else 'OFF'}",
-                        fg=COLOR_WARN if enabled else "#9ca3af")
-    manual_label.config(text=f"PORT SELECTION: {'ON' if enabled else 'OFF'}",
                         fg=COLOR_WARN if enabled else "#9ca3af")
     i_send("manual_control", "ON" if enabled else "OFF")
 
