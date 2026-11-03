@@ -1,11 +1,5 @@
 import socket
 import threading
-
-def set_host(ip, port):
-    HOST, PORT = ip, port
-    print(f"Connecting to {HOST}:{PORT}")
-    sock = socket.create_connection((HOST, PORT))
-
 import time
 
 host, port = "127.0.0.1", 5000
