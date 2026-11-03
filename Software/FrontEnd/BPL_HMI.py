@@ -14,16 +14,17 @@ from __future__ import annotations  # importing the future of the universe to ru
 from dataclasses import dataclass, fields
 from datetime import datetime
 import os
-from pathlib import Path
 import random
 import socket
 import sys
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox
 import webbrowser
-
+from pathlib import Path
+from tkinter import messagebox
+from PIL import Image, ImageTk
+from tkinter import filedialog, messagebox
 import cv2
 
 # ========== define directory =============
@@ -33,6 +34,10 @@ BASE_DIR = Path.home() / "Desktop" / "Blinn Propulsion Labs"
 soft_ver = "V1.10"
 PROGRAM_DEBUG = True
 PROGRAM_START = time.perf_counter()
+COLOR_TOP = "#161517"
+COLOR_BOTTOM = "#252023"
+COLOR_OPEN = "#16a34a"    # Green
+COLOR_CLOSED = "#dc2626"  # Red
 
 # //--DEBUG / EXPERIMENTS--// [WARNING! IF ANY EXPERIMENT IS ON, THE ENGINE CANNOT FIRE!]
 EXPERIMENTS = {
@@ -194,14 +199,251 @@ def enable_high_dpi() -> None:
       pass
 
 
+def create_vertical_gradient(width: int, height: int, start_hex: str, end_hex: str) -> ImageTk.PhotoImage:
+  """Generates a vertical gradient image between two hex colors."""
+  # Convert hex colors to RGB tuples
+  start_rgb = tuple(int(start_hex.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+  end_rgb = tuple(int(end_hex.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+  
+  img = Image.new("RGB", (width, max(1, height)))
+  for y in range(height):
+    r = int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * (y / height))
+    g = int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * (y / height))
+    b = int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * (y / height))
+    for x in range(width):
+      img.putpixel((x, y), (r, g, b))
+      
+  return ImageTk.PhotoImage(img)
+
+class InteractivePIDCanvas(tk.Canvas):
+  """Custom Canvas supporting background PNG loading and drag-and-drop control nodes."""
+
+  def __init__(self, parent, **kwargs):
+    super().__init__(parent, **kwargs)
+    self.bg_image_raw: Image.Image | None = None
+    self.bg_image_tk: ImageTk.PhotoImage | None = None
+    self.nodes: dict[str, dict] = {}
+
+    self._drag_data = {"item": None, "x": 0, "y": 0}
+
+    # Canvas bindings for drag and drop (with corrected event sequence strings)
+    self.tag_bind("control_node", "<ButtonPress-1>", self._on_node_press)
+    self.tag_bind("control_node", "<ButtonRelease-1>", self._on_node_release)
+    self.tag_bind("control_node", "<B1-Motion>", self._on_node_drag)
+
+  def load_background_png(self, filepath: str) -> None:
+    """Loads a PNG image and displays it scaled to fit the canvas."""
+    try:
+      self.bg_image_raw = Image.open(filepath)
+      self.redraw_background()
+    except Exception as e:
+      messagebox.showerror("Image Load Error", f"Failed to load image:\n{e}")
+
+  def redraw_background(self) -> None:
+    """Rescales and redraws the background PNG without resetting node positions."""
+    if self.bg_image_raw is None:
+      return
+
+    cw = max(1, self.winfo_width())
+    ch = max(1, self.winfo_height())
+
+    img_copy = self.bg_image_raw.copy()
+    img_copy.thumbnail((cw, ch), Image.Resampling.LANCZOS)
+    self.bg_image_tk = ImageTk.PhotoImage(img_copy)
+
+    self.delete("bg_image")
+    self.create_image(
+        cw // 2, ch // 2, image=self.bg_image_tk, anchor="center", tags="bg_image"
+    )
+    self.tag_lower("bg_image")
+
+  def add_control_node(self, node_id: str, label: str, x: int, y: int, is_open: bool = False) -> None:
+    """Creates a draggable valve node with status text."""
+    tag_name = f"node_{node_id}"
+    color = COLOR_OPEN if is_open else COLOR_CLOSED
+    status_text = f"{label}: {'OPEN' if is_open else 'CLOSED'}"
+
+    self.create_oval(
+        x - 12, y - 12, x + 12, y + 12,
+        fill=color, outline="#ffffff", width=2,
+        tags=("control_node", tag_name, f"{tag_name}_oval")
+    )
+    self.create_text(
+        x + 18, y,
+        text=status_text, fill="#ffffff", anchor="w",
+        font=("Consolas", 9, "bold"),
+        tags=("control_node", tag_name, f"{tag_name}_text")
+    )
+
+    self.nodes[node_id] = {
+        "tag": tag_name,
+        "label": label,
+        "is_open": is_open,
+        "x": x,
+        "y": y,
+    }
+
+  def update_node_status(self, node_id: str, is_open: bool) -> None:
+    """Updates the color and text of a control node dynamically."""
+    if node_id not in self.nodes:
+      return
+
+    node = self.nodes[node_id]
+    node["is_open"] = is_open
+    color = COLOR_OPEN if is_open else COLOR_CLOSED
+    status_text = f"{node['label']}: {'OPEN' if is_open else 'CLOSED'}"
+
+    tag_name = node["tag"]
+    self.itemconfig(f"{tag_name}_oval", fill=color)
+    self.itemconfig(f"{tag_name}_text", text=status_text)
+
+  def _on_node_press(self, event):
+    clicked = self.find_withtag("current")
+    if not clicked:
+      return
+    tags = self.gettags(clicked[0])
+    group_tag = next((t for t in tags if t.startswith("node_")), None)
+
+    if group_tag:
+      self._drag_data["item"] = group_tag
+      self._drag_data["x"] = event.x
+      self._drag_data["y"] = event.y
+
+  def _on_node_release(self, event):
+    self._drag_data["item"] = None
+
+  def _on_node_drag(self, event):
+    group_tag = self._drag_data["item"]
+    if not group_tag:
+      return
+
+    dx = event.x - self._drag_data["x"]
+    dy = event.y - self._drag_data["y"]
+
+    self.move(group_tag, dx, dy)
+
+    self._drag_data["x"] = event.x
+    self._drag_data["y"] = event.y
+
+  
 def launch_ui() -> None:
-  """Primary HMI window: menu bar + camera feed monitor."""
+  """Primary HMI window: menu bar + camera feed monitor + dynamic 2/3 P&ID canvas."""
   enable_high_dpi()
 
   root = tk.Tk()
   root.title(f"BPL HMI - {engine.engine_name}")
-  root.geometry("1000x650")
+  root.geometry("1200x750")
 
+  # --- Background Canvas ---
+  canvas = tk.Canvas(root, highlightthickness=0)
+  canvas.pack(fill="both", expand=True)
+
+  bg_image = None  # Reference to hold generated PhotoImage image in memory
+
+  # --- UI Container ---
+  ui_container = tk.Frame(canvas, bg="")
+  container_window = canvas.create_window((0, 0), window=ui_container, anchor="nw")
+
+  def update_layout(event):
+    nonlocal bg_image
+    w, h = event.width, event.height
+    if w <= 0 or h <= 0:
+      return
+
+    bg_image = create_vertical_gradient(w, h, COLOR_TOP, COLOR_BOTTOM)
+    canvas.delete("gradient")
+    canvas.create_image(0, 0, image=bg_image, anchor="nw", tags="gradient")
+    canvas.tag_lower("gradient")
+
+    canvas.itemconfig(container_window, width=w, height=h)
+    pid_canvas.redraw_background()
+
+  canvas.bind("<Configure>", update_layout)
+
+  # Column configuration: Left (2/3 width) and Right (1/3 width)
+  ui_container.columnconfigure(0, weight=2)
+  ui_container.columnconfigure(1, weight=1)
+  ui_container.rowconfigure(0, weight=1)
+
+  # --- Left Panel: 2/3 Interactive P&ID Workspace ---
+  pid_frame = tk.LabelFrame(
+      ui_container,
+      text=" SYSTEM P&ID DIAGRAM ",
+      fg="#ffffff",
+      bg="#1b1a1d",
+      bd=1,
+      relief="solid",
+      font=("Consolas", 10, "bold"),
+  )
+  pid_frame.grid(row=0, column=0, sticky="nsew", padx=(15, 7), pady=15)
+
+  # Top Toolbar inside P&ID Panel
+  toolbar = tk.Frame(pid_frame, bg="#1b1a1d")
+  toolbar.pack(fill="x", padx=5, pady=2)
+
+  def upload_png():
+    file_path = filedialog.askopenfilename(
+        title="Select P&ID Diagram Image",
+        filetypes=[("PNG Images", "*.png"), ("All Files", "*.*")],
+    )
+    if file_path:
+      pid_canvas.load_background_png(file_path)
+
+  upload_btn = tk.Button(
+      toolbar,
+      text="Upload P&ID PNG",
+      command=upload_png,
+      bg="#2d2b30",
+      fg="#ffffff",
+      relief="flat",
+      font=("Consolas", 8, "bold"),
+  )
+  upload_btn.pack(side="left", padx=2)
+
+  # Dynamic Interactive P&ID Canvas
+  pid_canvas = InteractivePIDCanvas(pid_frame, bg="#121113", highlightthickness=0)
+  pid_canvas.pack(fill="both", expand=True, padx=5, pady=5)
+
+  # Initialize default valve indicators
+  pid_canvas.add_control_node("FMV", "Fuel Main (FMV)", x=100, y=100, is_open=valves.fuel_main)
+  pid_canvas.add_control_node("GC_CHECK", "GN2 Check Valve", x=100, y=160, is_open=valves.gc_check)
+
+  # --- Right Panel: 1/3 Telemetry & Control Panel ---
+  sidebar_frame = tk.LabelFrame(
+      ui_container,
+      text=" TELEMETRY & CONTROLS ",
+      fg="#ffffff",
+      bg="#1b1a1d",
+      bd=1,
+      relief="solid",
+      font=("Consolas", 10, "bold"),
+  )
+  sidebar_frame.grid(row=0, column=1, sticky="nsew", padx=(7, 15), pady=15)
+
+  tk.Label(
+      sidebar_frame,
+      text=f"STATUS: {state.unit_state.upper()}",
+      fg="#22c55e",
+      bg="#1b1a1d",
+      font=("Consolas", 12, "bold"),
+  ).pack(anchor="w", padx=10, pady=(10, 5))
+
+  # Test Toggle Button for FMV status
+  def toggle_fmv():
+    valves.fuel_main = not valves.fuel_main
+    pid_canvas.update_node_status("FMV", valves.fuel_main)
+
+  toggle_btn = tk.Button(
+      sidebar_frame,
+      text="Toggle FMV State",
+      command=toggle_fmv,
+      bg="#2d2b30",
+      fg="#ffffff",
+      font=("Consolas", 9),
+  )
+  toggle_btn.pack(anchor="w", padx=10, pady=10)
+
+  # --- Camera Feed Logic ---
   camera_thread: threading.Thread | None = None
   camera_running = False
 
@@ -219,7 +461,6 @@ def launch_ui() -> None:
       cv2.imshow("preview", frame)
       rval, frame = vc.read()
       key = cv2.waitKey(20)
-      # Check if window was closed or 'q' was pressed
       if (
           key == ord("q")
           or key == 27
@@ -233,7 +474,6 @@ def launch_ui() -> None:
 
   def open_monitor() -> None:
     nonlocal camera_thread, camera_running
-    # Prevent starting duplicate camera threads if already open
     if camera_running and camera_thread is not None and camera_thread.is_alive():
       return
 
@@ -262,9 +502,11 @@ def launch_ui() -> None:
     camera_running = False
     root.destroy()
 
+  # --- Menubar Setup ---
   menubar = tk.Menu(root)
 
   file_menu = tk.Menu(menubar, tearoff=0)
+  file_menu.add_command(label="Upload PNG P&ID", command=upload_png)
   file_menu.add_command(label="Settings", state="disabled")
   file_menu.add_command(label="File Integrity", state="disabled")
   file_menu.add_command(label="Exit", command=on_exit)
@@ -287,7 +529,6 @@ def launch_ui() -> None:
   root.config(menu=menubar)
   root.protocol("WM_DELETE_WINDOW", on_exit)
   root.mainloop()
-
 
 # --- Experiments ---
 def test_express() -> None:
