@@ -1,9 +1,11 @@
+#
 #██████╗ ██╗      █████╗  ██████╗██╗  ██╗██████╗ ███████╗ █████╗ ██████╗ ██████╗     ███████╗██████╗  ██████╗ ███╗   ██╗████████╗
 #██╔══██╗██║     ██╔══██╗██╔════╝██║ ██╔╝██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔══██╗██╔═══██╗████╗  ██║╚══██╔══╝
 #██████╔╝██║     ███████║██║     █████╔╝ ██████╔╝█████╗  ███████║██████╔╝██║  ██║    █████╗  ██████╔╝██║   ██║██╔██╗ ██║   ██║   
 #██╔══██╗██║     ██╔══██║██║     ██╔═██╗ ██╔══██╗██╔══╝  ██╔══██║██╔══██╗██║  ██║    ██╔══╝  ██╔══██╗██║   ██║██║╚██╗██║   ██║   
 #██████╔╝███████╗██║  ██║╚██████╗██║  ██╗██████╔╝███████╗██║  ██║██║  ██║██████╔╝    ██║     ██║  ██║╚██████╔╝██║ ╚████║   ██║   
 #╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝     ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   
+#
 
 # 𝔅𝔩𝔦𝔫𝔫 𝔓𝔯𝔬𝔭𝔲𝔩𝔰𝔦𝔬𝔫 𝔏𝔞𝔟𝔬𝔯𝔞𝔱𝔬𝔯𝔦𝔢𝔰
 # V1.00.00  :  9/29/2026     
@@ -13,12 +15,8 @@
 # Standard Libraries (No installation required)
 
 # Todo:
-# 1. Add options in settings to change host and socket/port
-# 2. Add button for connection testing
-# 3. Add segmentation in settings for software / hardware settings & add warnings for changing important stuff and add a 
-# lock to prevent those changes unless the user is absolutley sure of it. 
-# 4. Fix the weird visual caused by resizing the Window
-# 5. Make the GNC check valve not a valve you can control, this is another check valve.
+# 1. Add button for connection testing
+# 2. Fix the weird visual caused by resizing the Window
 
 from __future__ import annotations
 import random
@@ -46,6 +44,7 @@ PROGRAM_DEBUG = True
 PROGRAM_START = time.perf_counter()
 TELEMETRY_REFRESH_MS = 100  # how often the on-screen readings refresh
 DESIGN_W, DESIGN_H = 1400, 850
+TEXT_BOOST = 1.3  # makes all P&ID text, symbols and valve boxes this much bigger
 
 # Window / diagram colors
 COLOR_TOP = "#161517"
@@ -66,13 +65,11 @@ EXPERIMENTS = {
     "SetUp": True,          # Utility: creates logging directory structure + a log
 }
 
-
 # =============================================================================
 # State, telemetry & settings structures
 # =============================================================================
 @dataclass
 class ValveState:
-  gc_check: bool = False     # GN2 Check Valve
   gb_solenoid: bool = False  # GN2 Back Pressurizing Solenoid
   fuel_purge: bool = False   # Fuel Purging Solenoid
   fuel_main: bool = False    # Fuel Main Valve
@@ -100,7 +97,6 @@ class TelemetryData:
   lcell_b: float = 0.00
   lcell_c: float = 0.00
 
-
 @dataclass
 class SystemState:
   runlogs: bool = False
@@ -113,11 +109,11 @@ class SystemState:
 class EngineInfo:
   engine_name: str = "Blackbeard 1"
 
-
 @dataclass
 class AppSettings:
   manual_control: bool = False  # valves are NOT user-controllable by default
-
+  host_ip: str = "127.0.0.1"
+  socket: int = 5000
 
 valves = ValveState()
 telemetry = TelemetryData()
@@ -133,20 +129,20 @@ local_logs: list[dict] = []
 # P&ID tag -> (ValveState attribute, description, box x, box y, box anchor)
 # Box x/y are in diagram coordinates (REF_W x REF_H below).
 VALVE_LAYOUT: dict[str, tuple[str, str, int, int, str]] = {
-    "GCV":   ("gc_check",    "GN2 Check Valve",                  470, 148, "n"),
-    "GBS":   ("gb_solenoid", "GN2 Back Pressurizing Solenoid",   330, 148, "n"),
-    "FPS":   ("fuel_purge",  "Fuel Purging Solenoid",            470, 418, "n"),
-    "FMV":   ("fuel_main",   "Fuel Main Valve",                  650, 418, "n"),
-    "OMV":   ("ox_main",     "Oxidizer Main Valve",              680, 648, "n"),
-    "ORTPS": ("ORIPS",       "Oxidizer Run Tank Purge Solenoid", 540, 690, "e"),
-    "CPS":   ("CPS",         "Chiller Purge Solenoid",           192, 672, "nw"),
-    "CMS":   ("CMS",         "Chiller Main Solenoid",            415, 648, "n"),
+    "GBS":   ("gb_solenoid", "GN2 Back Pressurizing Solenoid",   350, 130, "n"),
+    "FPS":   ("fuel_purge",  "Fuel Purging Solenoid",            440, 385, "n"),
+    "FMV":   ("fuel_main",   "Fuel Main Valve",                  720, 385, "n"),
+    "OMV":   ("ox_main",     "Oxidizer Main Valve",              720, 655, "n"),
+    "ORTPS": ("ORIPS",       "Oxidizer Run Tank Purge Solenoid", 566, 684, "ne"),
+    "CPS":   ("CPS",         "Chiller Purge Solenoid",           192, 685, "nw"),
+    "CMS":   ("CMS",         "Chiller Main Solenoid",            410, 655, "n"),
 }
 
 # Passive valves / parts that appear on the drawing but are not controllable
 PASSIVE_PARTS = {
     "GPR": "GN2 Pressure Regulator",
     "GPRV": "GN2 Pressure Relief Valve",
+    "GCV": "GN2 Check Valve",
     "FCV": "Fuel Check Valve",
     "OCV": "Oxidizer Check Valve",
     "CCV": "Chiller Check Valve",
@@ -169,24 +165,20 @@ SENSORS: dict[str, tuple[str, str, str]] = {
 def get_valve(key: str) -> bool:
   return getattr(valves, VALVE_LAYOUT[key][0])
 
-
 def set_valve(key: str, is_open: bool) -> None:
   """Single entry point for changing a valve (hook your Teensy command here)."""
   setattr(valves, VALVE_LAYOUT[key][0], is_open)
   i_send("valve_cmd", key, "OPEN" if is_open else "CLOSED")
 
-
 def format_reading(tag: str) -> str:
   field, _desc, unit = SENSORS[tag]
   return f"{getattr(telemetry, field):.1f} {unit}"
-
 
 # =============================================================================
 # File system
 # =============================================================================
 def engine_dir() -> Path:
   return BASE_DIR / engine.engine_name
-
 
 def integrity_checker() -> Path:
   """Creates the project folder structure (if missing) and returns its root."""
@@ -195,7 +187,6 @@ def integrity_checker() -> Path:
     (root / sub).mkdir(parents=True, exist_ok=True)
   print(f"Folder structure ready at: {root}")
   return root
-
 
 # =============================================================================
 # Comms
@@ -224,7 +215,6 @@ def i_send(itype: str, *args) -> None:
   if PROGRAM_DEBUG:
     print(f"[COMM] {itype}:", *args)
 
-
 # =============================================================================
 # Utilities
 # =============================================================================
@@ -244,7 +234,6 @@ def time_thread(tstype: str) -> str:
   if tst == "mini":
     return now.strftime("%S.%f")[:-3]
   return now.strftime("%H:%M:%S")
-
 
 def create_log() -> Path:
   """Compiles local log entries and writes to disk."""
@@ -306,8 +295,50 @@ def create_vertical_gradient(width: int, height: int, start_hex: str, end_hex: s
 
 # Size of the coordinate system the diagram is drawn in. Everything is scaled
 # from this to whatever size the canvas currently is.
-REF_W, REF_H = 960, 760
+REF_W, REF_H = 1040, 780
 
+# ---- Settings window building blocks -------------------------------------
+def settings_section(parent, title: str) -> tk.LabelFrame:
+  """A titled box. Everything related goes inside one of these."""
+  frame = tk.LabelFrame(parent, text=f" {title} ", fg="#ffffff", bg=COLOR_PANEL,
+                        bd=1, relief="solid", font=("Consolas", 9, "bold"))
+  frame.pack(fill="x", padx=15, pady=5)
+  return frame
+
+def settings_note(parent, text: str) -> None:
+  """Small grey help text under a control."""
+  tk.Label(parent, text=text, fg="#9ca3af", bg=COLOR_PANEL, justify="left",
+           font=("Consolas", 8)).pack(anchor="w", padx=10, pady=(0, 6))
+
+def settings_checkbox(parent, text: str, variable: tk.BooleanVar, command) -> None:
+  tk.Checkbutton(parent, text=text, variable=variable, command=command,
+                 fg="#ffffff", bg=COLOR_PANEL, selectcolor="#2d2b30",
+                 activebackground=COLOR_PANEL, activeforeground="#ffffff",
+                 font=("Consolas", 10, "bold"), cursor="hand2").pack(anchor="w", padx=10, pady=(6, 2))
+
+def settings_entry(parent, label: str, variable: tk.StringVar, width: int = 12) -> None:
+  """One row: a label on the left, a text box on the right. Use for text AND integers."""
+  row = tk.Frame(parent, bg=COLOR_PANEL)
+  row.pack(anchor="w", padx=10, pady=2)
+  tk.Label(row, text=label, fg="#d1d5db", bg=COLOR_PANEL, width=10, anchor="w",
+           font=("Consolas", 9, "bold")).pack(side="left")
+  tk.Entry(row, textvariable=variable, width=width, bg="#2d2b30", fg="#ffffff",
+           insertbackground="#ffffff", relief="flat", font=("Consolas", 10)).pack(side="left")
+
+
+def settings_button(parent, text: str, command) -> tk.Button:
+  btn = tk.Button(parent, text=text, command=command, bg="#2d2b30", fg="#ffffff",
+                  activebackground="#3f3c44", activeforeground="#ffffff", relief="flat",
+                  font=("Consolas", 9, "bold"), padx=10)
+  btn.pack(anchor="w", padx=10, pady=(4, 8))
+  return btn
+
+
+def settings_status(parent) -> tk.Label:
+  """A line of feedback text you can update after pressing Apply."""
+  lbl = tk.Label(parent, text="", fg="#9ca3af", bg=COLOR_PANEL, font=("Consolas", 8))
+  lbl.pack(anchor="w", padx=10)
+  return lbl
 
 class PIDCanvas(tk.Canvas):
   """Native P&ID with live sensor readings and a status + toggle box per valve.
@@ -326,7 +357,7 @@ class PIDCanvas(tk.Canvas):
     self.controls_enabled = False  # toggle buttons locked until manual control is on
     self.scale = 1.0
     self.ox = self.oy = 0.0        # offset that centers the diagram
-    self.lw = 1.5
+    self.lw = max(1.5, 2.0 * self.scale)
     self.boxes: dict[str, dict] = {}
 
     # Fonts for the valve boxes (resized with the window)
@@ -387,7 +418,7 @@ class PIDCanvas(tk.Canvas):
 
   def _text(self, x, y, text, size=11, anchor="center", color=COLOR_LINE,
             bold=True, tags=()) -> None:
-    px = max(7, round(size * self.scale))
+    px = max(9, round(size * self.scale * TEXT_BOOST))
     weight = "bold" if bold else "normal"
     self.create_text(*self._t(x, y), text=text, fill=color, anchor=anchor,
                      justify="center", font=("Consolas", -px, weight),
@@ -406,7 +437,7 @@ class PIDCanvas(tk.Canvas):
     """Gate/solenoid valve symbol. Keyed valves are colored by their state."""
     fill = self._symbol_fill(key)
     tags = (f"sym_{key}",) if key else ()
-    d, hh = 11, 7
+    d, hh = 15, 10
     if orient == "h":
       tris = [[(x - d, y - hh), (x, y), (x - d, y + hh)],
               [(x + d, y - hh), (x, y), (x + d, y + hh)]]
@@ -418,26 +449,26 @@ class PIDCanvas(tk.Canvas):
 
     if solenoid:  # little actuator square, like the P&ID key
       if orient == "h":
-        self._line([(x, y), (x, y - 10)])
-        self._rect(x - 4, y - 18, x + 4, y - 10)
+        self._line([(x, y), (x, y - 13)])
+        self._rect(x - 5, y - 24, x + 5, y - 13)
       else:
-        self._line([(x, y), (x - 10, y)])
-        self._rect(x - 18, y - 4, x - 10, y + 4)
+        self._line([(x, y), (x - 13, y)])
+        self._rect(x - 24, y - 5, x - 13, y + 5)
 
   def _check(self, x, y, orient="h", key=None) -> None:
     """Check valve symbol (hinged flap + seat). Colored if it has a state."""
     color = COLOR_LINE if key is None else self._symbol_fill(key)
     tags = (f"sym_{key}",) if key else ()
     if orient == "h":
-      self._rect(x - 9, y - 6, x + 9, y + 6, outline=COLOR_PID_BG)       # gap in pipe
-      self._line([(x - 8, y), (x + 4, y - 9)], color, tags)              # flap
-      self._line([(x + 8, y - 7), (x + 8, y + 7)], color, tags)          # seat
+      self._rect(x - 12, y - 8, x + 12, y + 8, outline=COLOR_PID_BG)     # gap in pipe
+      self._line([(x - 11, y), (x + 5, y - 12)], color, tags)            # flap
+      self._line([(x + 11, y - 10), (x + 11, y + 10)], color, tags)      # seat
     else:
-      self._rect(x - 6, y - 9, x + 6, y + 9, outline=COLOR_PID_BG)
-      self._line([(x, y - 8), (x + 9, y + 4)], color, tags)
-      self._line([(x - 7, y + 8), (x + 7, y + 8)], color, tags)
-
-  def _sensor(self, tag: str, x: float, y: float, side: str, r: int = 13) -> None:
+      self._rect(x - 8, y - 12, x + 8, y + 12, outline=COLOR_PID_BG)
+      self._line([(x, y - 11), (x + 12, y + 5)], color, tags)
+      self._line([(x - 10, y + 11), (x + 10, y + 11)], color, tags)
+  
+  def _sensor(self, tag: str, x: float, y: float, side: str, r: int = 16) -> None:
     """Sensor bubble plus its live reading placed above/below/left/right of it."""
     self._circle(x, y, tag, r)
     if side == "above":
@@ -454,93 +485,95 @@ class PIDCanvas(tk.Canvas):
   # --------------------------------------------------------------- diagram --
   def _draw_diagram(self) -> None:
     # ---- Pipes first, so symbols and tanks sit on top of them ----
-    # GN2 pressurization (top band)
-    self._line([(100, 120), (565, 120), (565, 220)])               # bottle -> ethanol tank
-    self._line([(250, 93), (250, 120)])                            # P1 tap
-    self._line([(410, 120), (410, 108), (404, 103), (416, 96),     # GPRV tap + spring
-                (404, 89), (416, 82), (410, 77)])
-    self._arrow(410, 77, 410, 56)                                  # GPRV vent
-    self._rect(408, 118, 412, 122, fill=COLOR_LINE)                # junction dot
+    # GN2 line: bottle -> ethanol tank (top band, y=105)
+    self._line([(95, 105), (580, 105), (580, 190)])
+    self._line([(270, 86), (270, 105)])                              # P1 tap
+    self._line([(440, 105), (440, 93), (434, 88), (446, 81),         # GPRV tap + spring
+                (434, 74), (446, 67), (440, 62)])
+    self._arrow(440, 62, 440, 38)                                    # GPRV vent
+    self._rect(438, 103, 442, 107, fill=COLOR_LINE)                  # junction dot
 
-    # Fuel (middle band)
-    self._line([(565, 340), (565, 390)])                           # ethanol tank outlet
-    self._line([(481, 390), (790, 390)])                           # FPS .. FMV .. FCV .. TCA
-    self._line([(518, 362), (565, 362)])                           # P4 tap
-    self._line([(770, 363), (770, 390)])                           # P6 tap
-    self._arrow(410, 390, 458, 390)                                # ambient vent into FPS
+    # Fuel line: ethanol tank -> TCA (middle band, y=360)
+    self._line([(580, 280), (580, 360)])                             # tank outlet
+    self._line([(440, 360), (900, 360)])                             # FPS .. FMV .. FCV .. TCA
+    self._line([(580, 305), (630, 305)])                             # P4 tap
+    self._line([(875, 322), (875, 360)])                             # P6 tap
+    self._arrow(350, 360, 423, 360)                                  # ambient vent into FPS
+    self._rect(578, 358, 582, 362, fill=COLOR_LINE)                  # junction dot
 
-    # N2O / oxidizer (bottom band)
-    self._line([(100, 620), (225, 620)])                           # K-bottle -> chiller
-    self._line([(225, 620), (385, 620)], dash=(2, 4))              # through the chiller
-    self._line([(385, 620), (730, 620), (730, 450), (790, 450)])   # oxidizer line -> TCA
-    self._line([(565, 590), (565, 672)])                           # N2O run tank -> ORTPS
-    self._line([(165, 593), (165, 620)])                           # P2 tap
-    self._line([(450, 593), (450, 620)])                           # P3 tap
-    self._line([(600, 535), (620, 535)])                           # T tap
-    self._line([(600, 575), (617, 575)])                           # P5 tap
-    self._line([(770, 450), (770, 487)])                           # P7 tap
-    self._line([(165, 620), (165, 650)])                           # CPS branch
-    self._line([(165, 674), (165, 686)])
+    # N2O / oxidizer line (bottom band, y=630), rises on the right into the TCA
+    self._line([(95, 630), (215, 630)])                              # K-bottle -> chiller
+    self._line([(365, 630), (810, 630), (810, 420), (900, 420)])     # oxidizer line -> TCA
+    self._line([(600, 590), (600, 706)])                             # N2O run tank -> ORTPS
+    self._line([(170, 606), (170, 630)])                             # P2 tap
+    self._line([(470, 606), (470, 630)])                             # P3 tap
+    self._line([(645, 525), (662, 525)])                             # T tap
+    self._line([(645, 568), (659, 568)])                             # P5 tap
+    self._line([(870, 420), (870, 452)])                             # P7 tap
+    self._line([(170, 630), (170, 704)])                             # CPS branch
+    self._rect(598, 628, 602, 632, fill=COLOR_LINE)                  # junction dot
 
-    # ---- Tanks / vessels ----
-    self._rounded(30, 60, 100, 180)
-    self._text(65, 120, "GN2\n2Ksi")
-    self._rounded(530, 220, 600, 340)
-    self._text(565, 280, "Ethanol\nRun Tank")
-    self._rounded(530, 510, 600, 590)
-    self._text(565, 550, "N2O\nRun Tank")
-    self._rounded(30, 560, 100, 680)
-    self._text(65, 620, "N2O\nK-Bottle")
-    self._rounded(225, 580, 385, 660, r=12, dash=(5, 4))
-    self._text(235, 596, "N2O Chiller", anchor="w", size=11, bold=False)
+    # ---- Tanks / vessels (compact, not to scale) ----
+    self._rounded(15, 55, 95, 155)
+    self._text(55, 105, "GN2\n2Ksi", size=11)
+    self._rounded(535, 190, 625, 280)
+    self._text(580, 235, "Ethanol\nRun Tank", size=11)
+    self._rounded(555, 500, 645, 590)
+    self._text(600, 545, "N2O\nRun Tank", size=11)
+    self._rounded(15, 585, 95, 675)
+    self._text(55, 630, "N2O\nK-Bottle", size=11)
+    self._rounded(215, 595, 365, 665, r=12, dash=(5, 4))
+    self._text(225, 610, "N2O Chiller", anchor="w", size=11, bold=False)
+    self._line([(215, 630), (365, 630)], dash=(2, 4))                # through the chiller
 
     # ---- Thrust chamber assembly ----
-    self._poly([(790, 370), (850, 370), (915, 335), (915, 505), (850, 470), (790, 470)],
+    self._poly([(900, 325), (950, 325), (1010, 290), (1010, 490), (950, 455), (900, 455)],
                fill=COLOR_PID_BG)
-    ax, ay = self._t(900, 335)
-    bx, by = self._t(932, 505)
+    ax, ay = self._t(995, 290)
+    bx, by = self._t(1025, 490)
     self.create_oval(ax, ay, bx, by, outline=COLOR_LINE, width=self.lw, tags="diagram")
-    self._text(820, 420, "TCA", size=12)
+    self._text(925, 390, "TCA", size=14)
 
     # ---- GN2 section ----
-    self._bowtie(128, 120)                                  # manual valve at bottle
-    self._rect(170, 110, 190, 130)                          # GPR
-    self._arrow(166, 132, 194, 108)
-    self._text(180, 92, "GPR", size=10)
-    self._sensor("P1", 250, 80, "above")
-    self._bowtie(330, 120, "h", key="GBS", solenoid=True)
-    self._text(410, 40, "GPRV", size=10)
-    self._check(470, 120, "h", key="GCV")
-    self._bowtie(565, 170, "v")                             # manual valve at ethanol tank
+    self._bowtie(130, 105)                                  # manual valve at bottle
+    self._rect(175, 93, 199, 117)                           # GPR
+    self._arrow(170, 121, 204, 90)
+    self._text(187, 70, "GPR", size=11)
+    self._sensor("P1", 270, 70, "above")
+    self._bowtie(350, 105, "h", key="GBS", solenoid=True)
+    self._text(440, 18, "GPRV", size=11)
+    self._check(510, 105, "h")
+    self._text(510, 130, "GCV", size=11)
+    self._bowtie(580, 150, "v")                             # manual valve at ethanol tank
 
     # ---- Fuel section ----
-    self._sensor("P4", 505, 362, "left")
-    self._bowtie(470, 390, "h", key="FPS", solenoid=True)
-    self._bowtie(650, 390, "h", key="FMV", solenoid=True)
-    self._check(715, 390, "h")
-    self._text(715, 412, "FCV", size=10)
-    self._sensor("P6", 770, 350, "above")
+    self._sensor("P4", 646, 305, "right")
+    self._bowtie(440, 360, "h", key="FPS", solenoid=True)
+    self._bowtie(720, 360, "h", key="FMV", solenoid=True)
+    self._check(830, 360, "h")
+    self._text(830, 384, "FCV", size=11)
+    self._sensor("P6", 875, 306, "above")
 
     # ---- Oxidizer / chiller section ----
-    self._bowtie(128, 620)                                  # manual valve at K-bottle
-    self._sensor("P2", 165, 580, "above")
-    self._bowtie(165, 662, "v", key="CPS", solenoid=True)
+    self._bowtie(130, 630)                                  # manual valve at K-bottle
+    self._sensor("P2", 170, 590, "above")
+    self._bowtie(170, 685, "v", key="CPS", solenoid=True)
     for dx in (0, -14, 14):                                 # ambient exhaust under CPS
-      self._arrow(165, 690, 165 + dx, 714)
-    self._bowtie(415, 620, "h", key="CMS", solenoid=True)
-    self._sensor("P3", 450, 580, "above")
-    self._check(500, 620, "h")
-    self._text(500, 642, "CCV", size=10)
-    self._sensor("T", 630, 535, "right", r=10)
-    self._sensor("P5", 630, 575, "right")
-    self._bowtie(565, 672, "v", key="ORTPS", solenoid=True)
+      self._arrow(170, 708, 170 + dx, 732)
+    self._bowtie(410, 630, "h", key="CMS", solenoid=True)
+    self._sensor("P3", 470, 590, "above")
+    self._check(520, 630, "h")
+    self._text(520, 654, "CCV", size=11)
+    self._sensor("T", 675, 525, "right", r=13)
+    self._sensor("P5", 675, 568, "right")
+    self._bowtie(600, 690, "v", key="ORTPS", solenoid=True)
     for dx in (0, -14, 14):                                 # ambient exhaust under ORTPS
-      self._arrow(565, 694, 565 + dx, 718)
-    self._bowtie(680, 620, "h", key="OMV", solenoid=True)
-    self._check(730, 500, "v")
-    self._text(712, 500, "OCV", anchor="e", size=10)
-    self._sensor("P7", 770, 500, "below")
-
+      self._arrow(600, 712, 600 + dx, 736)
+    self._bowtie(720, 630, "h", key="OMV", solenoid=True)
+    self._check(810, 490, "v")
+    self._text(792, 490, "OCV", anchor="e", size=11)
+    self._sensor("P7", 870, 468, "below")
+  
   # ----------------------------------------------------- valve control boxes --
   def add_valve_box(self, key: str, x: int, y: int, anchor: str, is_open: bool) -> None:
     """Small box: valve tag, status dot + OPEN/CLOSED, and a TOGGLE button."""
@@ -585,11 +618,11 @@ class PIDCanvas(tk.Canvas):
 
   def _resize_box_fonts(self) -> None:
     def px(n: int) -> int:
-      return -max(6, round(n * self.scale))
+      return -max(9, round(n * self.scale * TEXT_BOOST))
     self.f_tag.configure(size=px(10))
     self.f_status.configure(size=px(10))
     self.f_btn.configure(size=px(9))
-    d = max(8, round(12 * self.scale))
+    d = max(10, round(12 * self.scale * TEXT_BOOST))
     for info in self.boxes.values():
       info["dot"].config(width=d, height=d)
       info["dot"].coords(info["dot_id"], 1, 1, d - 1, d - 1)
@@ -631,31 +664,47 @@ def launch_ui() -> None:
   ui_container = tk.Frame(canvas, bg="")
   container_window = canvas.create_window((0, 0), window=ui_container, anchor="nw")
 
-  def update_layout(event) -> None:
-    nonlocal bg_image
-    if event.width <= 1 or event.height <= 1:
-      return
+  resize_job = None
+  applied_scale = 0.0
 
-    # Gradient still fills the whole window (it becomes the "bars" in fullscreen)
-    bg_image = create_vertical_gradient(event.width, event.height, COLOR_TOP, COLOR_BOTTOM)
+  def apply_heavy_layout(width: int, height: int, scale: float) -> None:
+    """Expensive work: runs once after resizing pauses, not on every event."""
+    nonlocal bg_image, resize_job, applied_scale
+    resize_job = None
+
+    bg_image = create_vertical_gradient(width, height, COLOR_TOP, COLOR_BOTTOM)
     canvas.delete("gradient")
     canvas.create_image(0, 0, image=bg_image, anchor="nw", tags="gradient")
     canvas.tag_lower("gradient")
 
-    # UI container: largest DESIGN_W:DESIGN_H rectangle that fits, centered
+    # Only touch Tk's scaling if it actually changed meaningfully
+    if abs(scale - applied_scale) > 0.02:
+      root.tk.call("tk", "scaling", base_tk_scaling * scale)
+      applied_scale = scale
+
+    root.config(menu=menubar)  # force the menu bar to repaint cleanly
+
+  def update_layout(event) -> None:
+    nonlocal resize_job
+    if event.width <= 1 or event.height <= 1:
+      return
+
+    # Cheap: keep the container letterboxed to the design aspect ratio right away
     scale = min(event.width / DESIGN_W, event.height / DESIGN_H)
     w, h = int(DESIGN_W * scale), int(DESIGN_H * scale)
     canvas.coords(container_window, (event.width - w) // 2, (event.height - h) // 2)
     canvas.itemconfig(container_window, width=w, height=h)
 
-    # Scale the sidebar / settings fonts along with the layout
-    root.tk.call("tk", "scaling", base_tk_scaling * scale)
+    # Expensive: wait until the user stops dragging (60 ms of quiet)
+    if resize_job is not None:
+      canvas.after_cancel(resize_job)
+    resize_job = canvas.after(60, apply_heavy_layout, event.width, event.height, scale)
 
   canvas.bind("<Configure>", update_layout)
 
   # Left 2/3 = P&ID, right 1/3 = sidebar
-  ui_container.columnconfigure(0, weight=2)
-  ui_container.columnconfigure(1, weight=1)
+  ui_container.columnconfigure(0, weight=1)   # P&ID takes everything the sidebar doesn't need
+  ui_container.columnconfigure(1, weight=0)   # sidebar keeps its natural width
   ui_container.rowconfigure(0, weight=1)
 
   # --- Left panel: native P&ID ---
@@ -788,10 +837,8 @@ def launch_ui() -> None:
     tk.Label(win, text="SETTINGS", fg="#ffffff", bg=COLOR_PANEL,
              font=("Consolas", 12, "bold")).pack(anchor="w", padx=15, pady=(12, 6))
 
-    section = tk.LabelFrame(win, text=" MANUAL CONTROL ", fg="#ffffff", bg=COLOR_PANEL,
-                            bd=1, relief="solid", font=("Consolas", 9, "bold"))
-    section.pack(fill="x", padx=15, pady=5)
-
+    # ---------------- Section: Manual Control ----------------
+    manual_box = settings_section(win, "MANUAL CONTROL")
     manual_var = tk.BooleanVar(value=settings.manual_control)
 
     def on_manual_changed() -> None:
@@ -802,31 +849,49 @@ def launch_ui() -> None:
                                  parent=win)
           manual_var.set(False)
           return
-        confirmed = messagebox.askokcancel(
+        if not messagebox.askokcancel(
             "Enable Manual Control",
             "This unlocks the TOGGLE buttons on every valve.\n\nEnable manual valve control?",
-            icon="warning", parent=win)
-        if not confirmed:
+            icon="warning", parent=win):
+          manual_var.set(False)
+          return
+        if not messagebox.askokcancel(
+            "Are you sure?",
+            "Valves will be commandable by hand. Confirm?",
+            icon="warning", parent=win):
           manual_var.set(False)
           return
       apply_manual_control(manual_var.get())
+    
+    settings_checkbox(manual_box, "Enable manual valve control", manual_var, on_manual_changed)
+    settings_note(manual_box, "Off: toggle buttons are locked.\nOn: each valve can be opened / closed by hand.")
 
-    tk.Checkbutton(section, text="Enable manual valve control", variable=manual_var,
-                   command=on_manual_changed, fg="#ffffff", bg=COLOR_PANEL,
-                   selectcolor="#2d2b30", activebackground=COLOR_PANEL,
-                   activeforeground="#ffffff", font=("Consolas", 10, "bold"),
-                   cursor="hand2").pack(anchor="w", padx=10, pady=(8, 2))
-    tk.Label(section, text="Off (default): valve toggle buttons are locked and the\n"
-                           "valves can only be commanded by the system.\n"
-                           "On: each valve can be opened / closed by hand.",
-             fg="#9ca3af", bg=COLOR_PANEL, justify="left",
-             font=("Consolas", 8)).pack(anchor="w", padx=10, pady=(0, 8))
+    # ---------------- Section: UDP Relay ----------------
+    udp_box = settings_section(win, "UDP RELAY")
+    host_var = tk.StringVar(value=settings.host_ip)
+    port_var = tk.StringVar(value=str(settings.socket))
+    udp_status = settings_status(udp_box)
+    udp_status.config(text=f"Sending to {settings.host_ip}:{settings.socket}")
 
+    settings_entry(udp_box, "Host", host_var, width=18)
+    settings_entry(udp_box, "Port", port_var, width=7)
+
+    def apply_udp() -> None:
+      try:
+        set_udp_target(host_var.get().strip(), int(port_var.get()))
+      except (ValueError, OSError) as exc:
+        udp_status.config(text=f"Not applied: {exc}", fg=COLOR_CLOSED)
+        return
+      udp_status.config(text=f"Sending to {settings.udp_host}:{settings.udp_port}", fg=COLOR_OPEN)
+
+    settings_button(udp_box, "Apply", apply_udp)
+    
     tk.Button(win, text="Close", command=win.destroy, bg="#2d2b30", fg="#ffffff",
               activebackground="#3f3c44", activeforeground="#ffffff", relief="flat",
               width=10, font=("Consolas", 9, "bold")).pack(side="bottom", pady=12)
 
   # --- Camera feed ---
+  # Running away is easy, it's the leaving that's hard.
   camera_thread: threading.Thread | None = None
   camera_running = False
 
@@ -886,11 +951,13 @@ def launch_ui() -> None:
 
   view_menu = tk.Menu(menubar, tearoff=0)
   view_menu.add_command(label="Open Telemetry")
-  view_menu.add_command(label="Open Monitor", command=open_monitor)
+  view_menu.add_command(label="Open Monitor", state="disabled")
   menubar.add_cascade(label="View", menu=view_menu)
 
   tools_menu = tk.Menu(menubar, tearoff=0)
-  tools_menu.add_command(label="(nothing yet)", state="disabled")
+  tools_menu.add_command(label="Teensy Connector")
+  tools_menu.add_command(label="Test Connection")
+  tools_menu.add_command(label="Simulation Mode")
   menubar.add_cascade(label="Tools", menu=tools_menu)
 
   help_menu = tk.Menu(menubar, tearoff=0)
