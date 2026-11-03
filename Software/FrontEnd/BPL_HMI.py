@@ -37,6 +37,7 @@ SOFT_VER = "V1.40"
 PROGRAM_DEBUG = True
 PROGRAM_START = time.perf_counter()
 TELEMETRY_REFRESH_MS = 100  # how often the on-screen readings refresh
+DESIGN_W, DESIGN_H = 1400, 850
 
 # Window / diagram colors
 COLOR_TOP = "#161517"
@@ -612,6 +613,7 @@ def launch_ui() -> None:
   root.title(f"BPL HMI - {engine.engine_name}")
   root.geometry("1400x850")
   root.minsize(1100, 700)
+  base_tk_scaling = float(root.tk.call("tk", "scaling"))
 
   # --- Gradient background ---
   canvas = tk.Canvas(root, highlightthickness=0)
@@ -623,13 +625,23 @@ def launch_ui() -> None:
 
   def update_layout(event) -> None:
     nonlocal bg_image
-    if event.width <= 0 or event.height <= 0:
+    if event.width <= 1 or event.height <= 1:
       return
+
+    # Gradient still fills the whole window (it becomes the "bars" in fullscreen)
     bg_image = create_vertical_gradient(event.width, event.height, COLOR_TOP, COLOR_BOTTOM)
     canvas.delete("gradient")
     canvas.create_image(0, 0, image=bg_image, anchor="nw", tags="gradient")
     canvas.tag_lower("gradient")
-    canvas.itemconfig(container_window, width=event.width, height=event.height)
+
+    # UI container: largest DESIGN_W:DESIGN_H rectangle that fits, centered
+    scale = min(event.width / DESIGN_W, event.height / DESIGN_H)
+    w, h = int(DESIGN_W * scale), int(DESIGN_H * scale)
+    canvas.coords(container_window, (event.width - w) // 2, (event.height - h) // 2)
+    canvas.itemconfig(container_window, width=w, height=h)
+
+    # Scale the sidebar / settings fonts along with the layout
+    root.tk.call("tk", "scaling", base_tk_scaling * scale)
 
   canvas.bind("<Configure>", update_layout)
 
@@ -746,6 +758,8 @@ def launch_ui() -> None:
     pid_canvas.set_controls_enabled(enabled)
     manual_label.config(text=f"MANUAL CONTROL: {'ON' if enabled else 'OFF'}",
                         fg=COLOR_WARN if enabled else "#9ca3af")
+    manual_label.config(text=f"PORT SELECTION: {'ON' if enabled else 'OFF'}",
+                        fg=COLOR_WARN if enabled else "#9ca3af")
     i_send("manual_control", "ON" if enabled else "OFF")
 
   settings_win: tk.Toplevel | None = None
@@ -762,7 +776,6 @@ def launch_ui() -> None:
     settings_win = win
     win.title("Settings")
     win.configure(bg=COLOR_PANEL)
-    win.geometry("480x250")
     win.resizable(False, False)
     win.transient(root)
 
@@ -880,6 +893,11 @@ def launch_ui() -> None:
   menubar.add_cascade(label="Help", menu=help_menu)
 
   root.config(menu=menubar)
+  def toggle_fullscreen(_event=None) -> None:
+    root.attributes("-fullscreen", not root.attributes("-fullscreen"))
+
+  root.bind("<F11>", toggle_fullscreen)
+  root.bind("<Escape>", lambda _e: root.attributes("-fullscreen", False))
   root.protocol("WM_DELETE_WINDOW", on_exit)
   root.mainloop()
 
