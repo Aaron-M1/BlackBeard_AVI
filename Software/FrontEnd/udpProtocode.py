@@ -5,6 +5,9 @@ HOST, PORT = "127.0.0.1", 5000
 print(f"Connecting to {HOST}:{PORT}")
 sock = socket.create_connection((HOST, PORT))
 
+def setHost(ip):
+    HOST = ip
+
 def receiver():
     # makefile() gives line-based reads, so framing is handled for us
     for line in sock.makefile("r"):

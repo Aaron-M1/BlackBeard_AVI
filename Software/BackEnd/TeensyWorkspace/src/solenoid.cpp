@@ -27,14 +27,7 @@ void solenoid::togglesolenoid()
 }
 
 void solenoid::setState(bool state){
-    if (state == false){
-        digitalWrite(SOLENOID_PIN, LOW);
-        isOpen = false;
-    }
-    else{
-        digitalWrite(SOLENOID_PIN, HIGH);
-        isOpen = true;
-    }
+    isOpen = state;
 }
 uint8_t solenoid::getPin()
 {
