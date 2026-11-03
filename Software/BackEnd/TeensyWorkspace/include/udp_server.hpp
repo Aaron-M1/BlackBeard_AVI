@@ -9,13 +9,13 @@ This is the udp protocol header file
 Creates a udp object that exchanges "name,value\n" packets with a PC client
 ----------------------------------------------------------*/
 
-class udp_protocol {
+class udp_server {
     public:
         // Called for every received packet that isn't handled internally ("setpoint")
         typedef void (*command_callback)(const String &name, float value);
 
-        udp_protocol(uint16_t port);
-        ~udp_protocol(void);
+        udp_server(uint16_t port);
+        ~udp_server(void);
 
         void begin(IPAddress ip, IPAddress mask, IPAddress gateway);
         udp_message update();   // call every loop(): reads at most one packet, never blocks

@@ -5,7 +5,7 @@
 This is the udp protocol source file
 Creates a udp object that exchanges "name,value\n" packets with a PC client
 ----------------------------------------------------------*/
-udp_protocol::udp_protocol(uint16_t port) //Constructor 
+udp_server::udp_server(uint16_t port) //Constructor 
 {
     localPort = port;
     peerPort = 0;
@@ -13,18 +13,18 @@ udp_protocol::udp_protocol(uint16_t port) //Constructor
     setpoint = 0.0f;
 }
 
-udp_protocol::~udp_protocol(void) //Destructor
+udp_server::~udp_server(void) //Destructor
 {
     udp.stop();
 }
 
-void udp_protocol::begin(IPAddress ip, IPAddress mask, IPAddress gateway) //Initializes the UDP object with needed params
+void udp_server::begin(IPAddress ip, IPAddress mask, IPAddress gateway) //Initializes the UDP object with needed params
 {
     qindesign::network::Ethernet.begin(ip, mask, gateway);
     udp.begin(localPort);
 }
 
-udp_message udp_protocol::update() //Must run in the loop func, checks for incoming packets and handles them, also sends outgoing packets
+udp_message udp_server::update() //Must run in the loop func, checks for incoming packets and handles them, also sends outgoing packets
 {
     // One UDP packet is one whole message, so no framing buffer is needed
     int size = udp.parsePacket();
@@ -50,7 +50,7 @@ udp_message udp_protocol::update() //Must run in the loop func, checks for incom
     return udp_message(name, value);
 }
 
-void udp_protocol::send(const char *name, float value) //sends packets to verified clients
+void udp_server::send(const char *name, float value) //sends packets to verified clients
 {
     if (!peerKnown) return;   // PC hasn't sent anything yet
     udp.beginPacket(peerIp, peerPort);
@@ -58,12 +58,12 @@ void udp_protocol::send(const char *name, float value) //sends packets to verifi
     udp.endPacket();
 }
 
-bool udp_protocol::hasPeer() //checks if someone is on the line
+bool udp_server::hasPeer() //checks if someone is on the line
 {
     return peerKnown;
 }
 
-void udp_protocol::handleLine(char *line, std::string& name, float& value) //Parses incoming packets and executes commands, or sends an ack if the command is a setpoint
+void udp_server::handleLine(char *line, std::string& name, float& value) //Parses incoming packets and executes commands, or sends an ack if the command is a setpoint
 {
     char *colon = strchr(line, ':');
     if (!colon) return udp_message("", 0.0f); // malformed
