@@ -15,7 +15,7 @@
 # Standard Libraries (No installation required)
 
 # Todo:
-# 1. Add button for connection testing
+# 1. Add button for connection testing -- DONEZO -troy
 # 2. Fix the weird visual caused by resizing the Window
 
 from __future__ import annotations
@@ -365,7 +365,17 @@ class PIDCanvas(tk.Canvas):
     self.f_status = tkfont.Font(family="Consolas", size=-10, weight="bold")
     self.f_btn = tkfont.Font(family="Consolas", size=-9, weight="bold")
 
-    self.bind("<Configure>", lambda _e: self.redraw())
+    self._redraw_job = None
+    self.bind("<Configure>", self._schedule_redraw)
+
+  def _schedule_redraw(self, event) -> None:
+    if self._redraw_job is not None:
+      self.after_cancel(self._redraw_job)
+    self._redraw_job = self.after(50, self.redraw)
+
+  def _run_redraw(self) -> None:
+    self._redraw_job = None
+    self.redraw()
 
   # ---------------------------------------------------------------- layout --
   def redraw(self) -> None:
@@ -657,20 +667,25 @@ def launch_ui() -> None:
   base_tk_scaling = float(root.tk.call("tk", "scaling"))
 
   # --- Gradient background ---
-  canvas = tk.Canvas(root, highlightthickness=0)
+  canvas = tk.Canvas(root, highlightthickness=0, bg=COLOR_BOTTOM)
   canvas.pack(fill="both", expand=True)
   bg_image = None  # keep a reference so Tk doesn't garbage-collect it
 
-  ui_container = tk.Frame(canvas, bg="")
+  ui_container = tk.Frame(canvas, bg=COLOR_BOTTOM)
   container_window = canvas.create_window((0, 0), window=ui_container, anchor="nw")
 
   resize_job = None
   applied_scale = 0.0
+  last_size = (0, 0)
 
   def apply_heavy_layout(width: int, height: int, scale: float) -> None:
     """Expensive work: runs once after resizing pauses, not on every event."""
     nonlocal bg_image, resize_job, applied_scale
     resize_job = None
+
+    w, h = int(DESIGN_W * scale), int(DESIGN_H * scale)
+    canvas.coords(container_window, (width - w) // 2, (height - h) // 2)
+    canvas.itemconfig(container_window, width=w, height=h)
 
     bg_image = create_vertical_gradient(width, height, COLOR_TOP, COLOR_BOTTOM)
     canvas.delete("gradient")
@@ -685,20 +700,18 @@ def launch_ui() -> None:
     root.config(menu=menubar)  # force the menu bar to repaint cleanly
 
   def update_layout(event) -> None:
-    nonlocal resize_job
+    nonlocal resize_job, last_size
     if event.width <= 1 or event.height <= 1:
       return
+    if (event.width, event.height) == last_size:
+      return
+    last_size = (event.width, event.height)
 
-    # Cheap: keep the container letterboxed to the design aspect ratio right away
     scale = min(event.width / DESIGN_W, event.height / DESIGN_H)
-    w, h = int(DESIGN_W * scale), int(DESIGN_H * scale)
-    canvas.coords(container_window, (event.width - w) // 2, (event.height - h) // 2)
-    canvas.itemconfig(container_window, width=w, height=h)
 
-    # Expensive: wait until the user stops dragging (60 ms of quiet)
     if resize_job is not None:
       canvas.after_cancel(resize_job)
-    resize_job = canvas.after(60, apply_heavy_layout, event.width, event.height, scale)
+    resize_job = canvas.after(150, apply_heavy_layout, event.width, event.height, scale)
 
   canvas.bind("<Configure>", update_layout)
 
