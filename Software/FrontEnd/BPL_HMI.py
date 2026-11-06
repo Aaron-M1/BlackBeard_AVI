@@ -15,8 +15,8 @@
 # Standard Libraries (No installation required)
 
 # Todo:
-# 1. Add button for connection testing -- DONEZO -troy
-# 2. Fix the weird visual caused by resizing the Window
+# 1. Add button for connection testing
+# 2. Fix the weird visual caused by resizing the Window - i did 
 
 from __future__ import annotations
 import random
@@ -39,7 +39,7 @@ from PIL import Image, ImageDraw, ImageTk
 # =============================================================================
 BASE_DIR = Path.home() / "Desktop" / "Blinn Propulsion Labs"
 
-SOFT_VER = "V1.40"
+SOFT_VER = "V1.41"
 PROGRAM_DEBUG = True
 PROGRAM_START = time.perf_counter()
 TELEMETRY_REFRESH_MS = 100  # how often the on-screen readings refresh
@@ -887,11 +887,22 @@ def launch_ui() -> None:
     udp_status.config(text=f"Sending to {settings.host_ip}:{settings.socket}")
 
     settings_entry(udp_box, "Host", host_var, width=18)
-    settings_entry(udp_box, "Port", port_var, width=7)
+    settings_entry(udp_box, "Port", port_var, width=6)
+
+    def set_udp_target(host: str, port: int) -> None:
+      """Update the UDP relay target and restart the socket."""
+      if not host:
+        raise ValueError("Host cannot be empty")
+      if not (0 < port < 65536):
+        raise ValueError("Port must be between 1 and 65535")
+      settings.udp_host = host
+      settings.udp_port = port
 
     def apply_udp() -> None:
       try:
         set_udp_target(host_var.get().strip(), int(port_var.get()))
+        settings.host_ip = settings.udp_host
+        settings.socket = settings.udp_port
       except (ValueError, OSError) as exc:
         udp_status.config(text=f"Not applied: {exc}", fg=COLOR_CLOSED)
         return
