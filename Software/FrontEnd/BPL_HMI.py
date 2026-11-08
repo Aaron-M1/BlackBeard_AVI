@@ -10,13 +10,12 @@
 # 𝔅𝔩𝔦𝔫𝔫 𝔓𝔯𝔬𝔭𝔲𝔩𝔰𝔦𝔬𝔫 𝔏𝔞𝔟𝔬𝔯𝔞𝔱𝔬𝔯𝔦𝔢𝔰
 # V1.00.00  :  9/29/2026     
 
-# # Everett mitchell was caught playing mario kart wii in the student center at 9/30/2026 at 9:29 AM
+# Everett mitchell was caught playing mario kart wii in the student center at 9/30/2026 at 9:29 AM
 # God rewards you for not ending it, so embrace.                                                                                                                           
 # Standard Libraries (No installation required)
 
 # Todo:
-# 1. Add button for connection testing
-# 2. Fix the weird visual caused by resizing the Window - i did 
+# 1. Add the Radial Valves and Sparkline Graphs to the right panel that CJ was referring to in Discord.
 
 from __future__ import annotations
 import random
@@ -38,6 +37,8 @@ from PIL import Image, ImageDraw, ImageTk
 # Configuration
 # =============================================================================
 BASE_DIR = Path.home() / "Desktop" / "Blinn Propulsion Labs"
+SCRIPT_DIR = Path(__file__).parent
+ICON_PATH = SCRIPT_DIR / "logo.png"
 
 SOFT_VER = "V1.41"
 PROGRAM_DEBUG = True
@@ -74,9 +75,7 @@ class ValveState:
   fuel_purge: bool = False   # Fuel Purging Solenoid
   fuel_main: bool = False    # Fuel Main Valve
   ox_main: bool = False      # Oxidizer Main Valve
-  ORIPS: bool = False        # Oxidizer Run Tank Purge Solenoid (ORTPS on the P&ID)
-  CPS: bool = False          # Chiller Purge Solenoid
-  CMS: bool = False          # Chiller Main Solenoid
+  OPS: bool = False          # Oxidizer Purge Solenoid
 
   def reset(self) -> None:
     for f in fields(self):
@@ -129,13 +128,11 @@ local_logs: list[dict] = []
 # P&ID tag -> (ValveState attribute, description, box x, box y, box anchor)
 # Box x/y are in diagram coordinates (REF_W x REF_H below).
 VALVE_LAYOUT: dict[str, tuple[str, str, int, int, str]] = {
-    "GBS":   ("gb_solenoid", "GN2 Back Pressurizing Solenoid",   350, 130, "n"),
-    "FPS":   ("fuel_purge",  "Fuel Purging Solenoid",            440, 385, "n"),
-    "FMV":   ("fuel_main",   "Fuel Main Valve",                  720, 385, "n"),
-    "OMV":   ("ox_main",     "Oxidizer Main Valve",              720, 655, "n"),
-    "ORTPS": ("ORIPS",       "Oxidizer Run Tank Purge Solenoid", 566, 684, "ne"),
-    "CPS":   ("CPS",         "Chiller Purge Solenoid",           192, 685, "nw"),
-    "CMS":   ("CMS",         "Chiller Main Solenoid",            410, 655, "n"),
+    "GPS":   ("gb_solenoid", "GN2 Back Pressurizing Solenoid",   400, 130, "n"),
+    "FMV":   ("fuel_main",   "Fuel Main Valve",                  720, 335, "n"),
+    "OMV":   ("ox_main",     "Oxidizer Main Valve",              600, 580, "n"),
+    "OPS":   ("OPS",         "Oxidizer Purge Solenoid",          390, 580, "nw"),
+    "NPS":   ("fuel_purge",  "GN2 Purge Solenoid",               250, 130, "n"),
 }
 
 # Passive valves / parts that appear on the drawing but are not controllable
@@ -145,7 +142,6 @@ PASSIVE_PARTS = {
     "GCV": "GN2 Check Valve",
     "FCV": "Fuel Check Valve",
     "OCV": "Oxidizer Check Valve",
-    "CCV": "Chiller Check Valve",
 }
 
 # P&ID tag -> (TelemetryData field, description, unit)
@@ -153,12 +149,9 @@ PASSIVE_PARTS = {
 SENSORS: dict[str, tuple[str, str, str]] = {
     "P1": ("gpressure_press", "GN2 Regulated Pressure", "PSI"),
     "P2": ("k_bottle_press",  "N2O K-Bottle",           "PSI"),
-    "P3": ("chiller_press",   "Chiller",                "PSI"),
-    "P4": ("e_run_press",     "Ethanol Run Tank",       "PSI"),
-    "P5": ("n2o_press",       "N2O Run Tank",           "PSI"),
-    "P6": ("fuel_c_press",    "Fuel Chamber",           "PSI"),
-    "P7": ("oxi_c_press",     "Oxidizer Chamber",       "PSI"),
-    "T":  ("n2o_temp",        "N2O Run Tank Temp",      "\u00b0C"),
+    "P3": ("e_run_press",     "Ethanol Run Tank",       "PSI"),
+    "P4": ("fuel_c_press",    "Fuel Chamber",           "PSI"),
+    "P5": ("oxi_c_press",     "Oxidizer Chamber",       "PSI"),
 }
 
 
@@ -191,29 +184,100 @@ def integrity_checker() -> Path:
 # =============================================================================
 # Comms
 # =============================================================================
-def receiver(sock: socket.socket) -> None:
-  """Reads 'name,value' lines from the Teensy and stores them in `telemetry`.
 
-  `name` must match a TelemetryData field (e.g. "e_run_press,412.7").
-  Runs on a worker thread; the UI picks the values up on its own refresh timer.
-  """
-  with sock.makefile("r") as stream:
-    for line in stream:
-      name, _, value = line.strip().partition(",")
-      try:
-        number = float(value)
-      except ValueError:
-        print(f"[from teensy] bad line skipped: {line!r}")
-        continue
-      if hasattr(telemetry, name):
-        setattr(telemetry, name, number)
-      else:
-        print(f"[from teensy] unknown channel skipped: {name!r}")
+class TeensyClient:
+    def __init__(self):
+        self.sock = None
+        self._running = False
+        self._thread = None
 
+    def connect(self, retry_delay=1, connect_timeout=3, max_attempts=5):
+        """Connects to the configured host and port, restarting the receiver thread."""
+        self.close()  # Close existing socket if connected
+        for attempt in range(1, max_attempts + 1):
+            try:
+                print(f"[COMM] Connecting to {settings.host_ip}:{settings.socket} (Attempt {attempt}/{max_attempts})...")
+                self.sock = socket.create_connection((settings.host_ip, settings.socket), timeout=connect_timeout)
+                self.sock.settimeout(None)
+                print("[COMM] Connected successfully.")
+                self.start_receiver()
+                return True
+            except (ConnectionRefusedError, socket.timeout, OSError) as e:
+                print(f"[COMM] Server not ready ({e}), retrying in {retry_delay}s...")
+                time.sleep(retry_delay)
+
+        print(f"[COMM] Failed to connect. Did you enter the correct IP address and port?")
+        return False
+
+    def start_receiver(self):
+        if not self.sock:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._listen, daemon=True)
+        self._thread.start()
+
+    def _listen(self):
+        try:
+            with self.sock.makefile("r") as stream:
+                for line in stream:
+                    if not self._running:
+                        break
+                    line = line.strip()
+                    if not line:
+                        continue
+                    name, sep, value_str = line.partition(",")
+                    if not sep:
+                        continue
+                    try:
+                        number = float(value_str)
+                        if hasattr(telemetry, name):
+                            setattr(telemetry, name, number)
+                        else:
+                            i_send("unknown_sensor", name, number)
+                    except ValueError:
+                        print(f"[from teensy] bad value received: {line}")
+        except (OSError, ValueError) as e:
+            if self._running:
+                print(f"[receiver error] {e}")
+
+    def send(self, name: str, value: float):
+        """Sends a single key-value payload to the Teensy."""
+        if not self.sock:
+            i_send("NOT_CONNECTED", name, value)
+            return
+        try:
+            payload = f"{name},{value}\n".encode("utf-8")
+            self.sock.sendall(payload)
+            i_send("SENT", name, value)
+        except OSError as e:
+            print(f"[send error] {e}")
+
+    def send_telemetry(self, data: TelemetryData):
+        """Iterates through all fields in TelemetryData and transmits them."""
+        for field in fields(data):
+            val = getattr(data, field.name)
+            self.send(field.name, float(val))
+
+    def close(self):
+        self._running = False
+        if self.sock:
+            try:
+                self.sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            self.sock.close()
+            self.sock = None
+            print("[COMM] Connection closed.")
+
+client = TeensyClient()
 
 def i_send(itype: str, *args) -> None:
   if PROGRAM_DEBUG:
     print(f"[COMM] {itype}:", *args)
+
+def test_connection_thread() -> None:
+  """Tests the connection to the Teensy in a separate thread."""
+  threading.Thread(target=client.connect, daemon=True).start()
 
 # =============================================================================
 # Utilities
@@ -496,7 +560,8 @@ class PIDCanvas(tk.Canvas):
   def _draw_diagram(self) -> None:
     # ---- Pipes first, so symbols and tanks sit on top of them ----
     # GN2 line: bottle -> ethanol tank (top band, y=105)
-    self._line([(95, 105), (580, 105), (580, 190)])
+    self._line([(55, 105), (580, 105), (580, 190)])
+    self._line([(179, 107), (330, 107), (330, 155)])                  # NPS branch
     self._line([(270, 86), (270, 105)])                              # P1 tap
     self._line([(440, 105), (440, 93), (434, 88), (446, 81),         # GPRV tap + spring
                 (434, 74), (446, 67), (440, 62)])
@@ -504,37 +569,28 @@ class PIDCanvas(tk.Canvas):
     self._rect(438, 103, 442, 107, fill=COLOR_LINE)                  # junction dot
 
     # Fuel line: ethanol tank -> TCA (middle band, y=360)
-    self._line([(580, 280), (580, 360)])                             # tank outlet
-    self._line([(440, 360), (900, 360)])                             # FPS .. FMV .. FCV .. TCA
-    self._line([(580, 305), (630, 305)])                             # P4 tap
-    self._line([(875, 322), (875, 360)])                             # P6 tap
-    self._arrow(350, 360, 423, 360)                                  # ambient vent into FPS
-    self._rect(578, 358, 582, 362, fill=COLOR_LINE)                  # junction dot
+    self._line([(580, 280), (580, 330)])                             # tank outlet & P3 tap
+    self._line([(580, 310), (780, 310)])                             # FMV branch
+    self._line([(780, 310), (780, 360)])                             # FMV branch down to FCV
+    self._line([(780, 360), (900, 360)])                             # FCV -> TCA
+    self._line([(875, 322), (875, 360)])                             # P4 tap
+    self._rect(578, 308, 582, 312, fill=COLOR_LINE)                  # junction dot
 
     # N2O / oxidizer line (bottom band, y=630), rises on the right into the TCA
-    self._line([(95, 630), (215, 630)])                              # K-bottle -> chiller
-    self._line([(365, 630), (810, 630), (810, 420), (900, 420)])     # oxidizer line -> TCA
-    self._line([(600, 590), (600, 706)])                             # N2O run tank -> ORTPS
-    self._line([(170, 606), (170, 630)])                             # P2 tap
-    self._line([(470, 606), (470, 630)])                             # P3 tap
-    self._line([(645, 525), (662, 525)])                             # T tap
-    self._line([(645, 568), (659, 568)])                             # P5 tap
-    self._line([(870, 420), (870, 452)])                             # P7 tap
-    self._line([(170, 630), (170, 704)])                             # CPS branch
-    self._rect(598, 628, 602, 632, fill=COLOR_LINE)                  # junction dot
+    self._line([(80, 550), (80, 580)])
+    self._line([(80, 550), (780, 550), (780, 420), (900, 420)])     # oxidizer line -> TCA
+    self._line([(80, 552), (350, 552)])
+    self._line([(230, 550), (230, 510)])                             # P2 tap
+    self._line([(870, 420), (870, 452)])                             # P5 tap
+    self._line([(350, 552), (350, 580)])                             # OPS branch
 
     # ---- Tanks / vessels (compact, not to scale) ----
-    self._rounded(15, 55, 95, 155)
-    self._text(55, 105, "GN2\n2Ksi", size=11)
-    self._rounded(535, 190, 625, 280)
-    self._text(580, 235, "Ethanol\nRun Tank", size=11)
-    self._rounded(555, 500, 645, 590)
-    self._text(600, 545, "N2O\nRun Tank", size=11)
-    self._rounded(15, 585, 95, 675)
-    self._text(55, 630, "N2O\nK-Bottle", size=11)
-    self._rounded(215, 595, 365, 665, r=12, dash=(5, 4))
-    self._text(225, 610, "N2O Chiller", anchor="w", size=11, bold=False)
-    self._line([(215, 630), (365, 630)], dash=(2, 4))                # through the chiller
+    self._rounded(15, 122, 95, 255)
+    self._text(55, 182, "GN2\nK Bottle", size=11)
+    self._rounded(540, 170, 620, 280)
+    self._text(580, 225, "Ethanol\nRun Tank", size=11)
+    self._rounded(15, 597, 95, 735)
+    self._text(55, 662, "N2O\nBottle\n(Chilled)", size=11)
 
     # ---- Thrust chamber assembly ----
     self._poly([(900, 325), (950, 325), (1010, 290), (1010, 490), (950, 455), (900, 455)],
@@ -545,44 +601,37 @@ class PIDCanvas(tk.Canvas):
     self._text(925, 390, "TCA", size=14)
 
     # ---- GN2 section ----
-    self._bowtie(130, 105)                                  # manual valve at bottle
-    self._rect(175, 93, 199, 117)                           # GPR
-    self._arrow(170, 121, 204, 90)
-    self._text(187, 70, "GPR", size=11)
+    self._bowtie(55, 105, "v")                             # manual valve at bottle
+    self._rect(155, 93, 179, 117)                           # GPR
+    self._arrow(150, 121, 184, 90)
+    self._text(157, 70, "GPR", size=11)
     self._sensor("P1", 270, 70, "above")
-    self._bowtie(350, 105, "h", key="GBS", solenoid=True)
+    self._bowtie(330, 155, "v", key="NPS", solenoid=True)
+    for dx in (0, -14, 14):                                 # ambient exhaust under NPS
+          self._arrow(330, 173, 330 + dx, 203)
+    self._bowtie(390, 105, "h", key="GPS", solenoid=True)
     self._text(440, 18, "GPRV", size=11)
     self._check(510, 105, "h")
     self._text(510, 130, "GCV", size=11)
     self._bowtie(580, 150, "v")                             # manual valve at ethanol tank
 
     # ---- Fuel section ----
-    self._sensor("P4", 646, 305, "right")
-    self._bowtie(440, 360, "h", key="FPS", solenoid=True)
-    self._bowtie(720, 360, "h", key="FMV", solenoid=True)
+    self._sensor("P3", 580, 345, "right")
+    self._bowtie(720, 310, "h", key="FMV", solenoid=True)
     self._check(830, 360, "h")
     self._text(830, 384, "FCV", size=11)
-    self._sensor("P6", 875, 306, "above")
+    self._sensor("P4", 875, 306, "above")
 
     # ---- Oxidizer / chiller section ----
-    self._bowtie(130, 630)                                  # manual valve at K-bottle
-    self._sensor("P2", 170, 590, "above")
-    self._bowtie(170, 685, "v", key="CPS", solenoid=True)
+    self._bowtie(80, 580, "v")                                  # manual valve at K-bottle
+    self._sensor("P2", 230, 500, "above")
+    self._bowtie(350, 590, "v", key="OPS", solenoid=True)
     for dx in (0, -14, 14):                                 # ambient exhaust under CPS
-      self._arrow(170, 708, 170 + dx, 732)
-    self._bowtie(410, 630, "h", key="CMS", solenoid=True)
-    self._sensor("P3", 470, 590, "above")
-    self._check(520, 630, "h")
-    self._text(520, 654, "CCV", size=11)
-    self._sensor("T", 675, 525, "right", r=13)
-    self._sensor("P5", 675, 568, "right")
-    self._bowtie(600, 690, "v", key="ORTPS", solenoid=True)
-    for dx in (0, -14, 14):                                 # ambient exhaust under ORTPS
-      self._arrow(600, 712, 600 + dx, 736)
-    self._bowtie(720, 630, "h", key="OMV", solenoid=True)
-    self._check(810, 490, "v")
-    self._text(792, 490, "OCV", anchor="e", size=11)
-    self._sensor("P7", 870, 468, "below")
+      self._arrow(350, 613, 350 + dx, 643)
+    self._bowtie(600, 550, "h", key="OMV", solenoid=True)
+    self._check(780, 490, "v")
+    self._text(762, 490, "OCV", anchor="e", size=11)
+    self._sensor("P5", 870, 468, "below")
   
   # ----------------------------------------------------- valve control boxes --
   def add_valve_box(self, key: str, x: int, y: int, anchor: str, is_open: bool) -> None:
@@ -662,6 +711,9 @@ def launch_ui() -> None:
 
   root = tk.Tk()
   root.title(f"BPL HMI - {engine.engine_name}")
+  pil_img = Image.open(ICON_PATH)
+  app_icon = ImageTk.PhotoImage(pil_img)
+  root.iconphoto(True, app_icon)
   root.geometry("1400x850")
   root.minsize(1100, 700)
   base_tk_scaling = float(root.tk.call("tk", "scaling"))
@@ -895,8 +947,7 @@ def launch_ui() -> None:
         raise ValueError("Host cannot be empty")
       if not (0 < port < 65536):
         raise ValueError("Port must be between 1 and 65535")
-      settings.udp_host = host
-      settings.udp_port = port
+      settings.udp_host, settings.udp_port = host, port
 
     def apply_udp() -> None:
       try:
@@ -916,6 +967,7 @@ def launch_ui() -> None:
 
   # --- Camera feed ---
   # Running away is easy, it's the leaving that's hard.
+  # do we still need this? if not then why dont we remove it? or at least just save the code in the depricated folder
   camera_thread: threading.Thread | None = None
   camera_running = False
 
@@ -980,7 +1032,7 @@ def launch_ui() -> None:
 
   tools_menu = tk.Menu(menubar, tearoff=0)
   tools_menu.add_command(label="Teensy Connector")
-  tools_menu.add_command(label="Test Connection")
+  tools_menu.add_command(label="Test Connection", command=test_connection_thread)
   tools_menu.add_command(label="Simulation Mode")
   menubar.add_cascade(label="Tools", menu=tools_menu)
 
