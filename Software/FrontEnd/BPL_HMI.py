@@ -82,7 +82,6 @@ class ValveState:
     for f in fields(self):
       setattr(self, f.name, False)
 
-
 @dataclass
 class TelemetryData:
   gpressure_press: float = 0.00
