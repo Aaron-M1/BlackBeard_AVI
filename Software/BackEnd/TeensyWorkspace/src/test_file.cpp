@@ -3,8 +3,8 @@
 
 int main(){
 
-    server udp_server(5000)
-    server.begin(127.0.0.1,255.255.255.255,10.128.13.13)
+    server udp_server(5000);
+    server.begin(127.0.0.1,255.255.255.255,10.128.13.13);
 
     for (int i = 0; i < 5; i++) {
 
