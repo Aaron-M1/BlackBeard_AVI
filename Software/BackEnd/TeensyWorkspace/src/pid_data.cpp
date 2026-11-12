@@ -12,7 +12,7 @@ pid_data::pid_data(void) {
         //Solenoid valves
         nps_open = false; // Defaults to open
         ops_open = false; // Defaults to open
-        gps_open = false; // Defaults to closed
+        gbs_open = false; // Defaults to closed
         fmv_open = false; // Defaults to closed
         omv_open = false; // Defaults to closed
 
@@ -23,7 +23,6 @@ pid_data::pid_data(void) {
         pressure_3 = 0.0; //TODO: Figure out what valves pressure is being read from
         pressure_4 = 0.0; //TODO: Figure out what valves pressure is being read from
         pressure_5 = 0.0; //TODO: Figure out what valves pressure is being read from
-
 }
 
 
@@ -36,8 +35,8 @@ void pid_data::setOPS(bool is_open) {
 }
 
 
-void pid_data::setGPS(bool is_open) {
-    gps_open = is_open;
+void pid_data::setGBS(bool is_open) {
+    gbs_open = is_open;
 }
 
 void pid_data::setFMV(bool is_open) {
@@ -79,8 +78,8 @@ bool pid_data::getOPS() {
     return ops_open;
 }
 
-bool pid_data::getGPS() {
-    return gps_open;
+bool pid_data::getGBS() {
+    return gbs_open;
 }
 
 bool pid_data::getFMV() {

@@ -19,7 +19,7 @@ class pid_data {
 
         //SETTERS
         void setNPS(bool is_open);
-        void setGPS(bool is_open);
+        void setNBS(bool is_open);
         void setFMV(bool is_open);
         void setOMV(bool is_open);
         void setOPS(bool is_open);
@@ -36,7 +36,7 @@ class pid_data {
         //GETTERS
         bool getNPS();
         bool getOPS();
-        bool getGPS();
+        bool getGBS();
         bool getFMV();
         bool getOMV();
 
@@ -49,7 +49,7 @@ class pid_data {
         //VALVE BOOLEANS
         bool nps_open; //Nitrous Propellant Solenoid
         bool ops_open; //Oxidizer Propellant Solenoid
-        bool gps_open; //Gas Propellant Solenoid
+        bool gbs_open; //Gas Propellant Solenoid
         bool fmv_open; //Fuel Main Valve
         bool omv_open; //Oxidizer Main Valve
 
