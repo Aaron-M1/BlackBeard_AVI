@@ -37,3 +37,7 @@ bool solenoid::getState()
 {
     return isOpen;
 }
+void solenoid::setDefault()
+{
+    setState(defaultState);
+}
