@@ -14,7 +14,7 @@ solenoid::solenoid(uint8_t pin, bool default_state)
 
 }
 
-void solenoid::togglesolenoid()
+void solenoid::setSolenoid()
 {
   if (isOpen == false){
     digitalWrite(SOLENOID_PIN, HIGH);
@@ -28,7 +28,9 @@ void solenoid::togglesolenoid()
 
 void solenoid::setState(bool state){
     isOpen = state;
+    digitalWrite(SOLENOID_PIN, state ? HIGH : LOW);
 }
+
 uint8_t solenoid::getPin()
 {
     return SOLENOID_PIN;

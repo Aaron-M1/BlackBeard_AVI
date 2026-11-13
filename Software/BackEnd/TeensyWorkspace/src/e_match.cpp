@@ -13,6 +13,7 @@ EMatch::EMatch(uint8_t firePin, uint16_t fireTimeMs){
     _fireTimeMs = min(fireTimeMs, (uint16_t)3000);
     _firing = false;
     _fireStart = 0;
+    begin();
 }
     
 
