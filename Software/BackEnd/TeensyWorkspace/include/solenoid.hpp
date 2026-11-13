@@ -15,6 +15,7 @@ class solenoid {
 
         void togglesolenoid();
         void setState(bool state);
+        
 
         uint8_t getPin();
         bool getState();
