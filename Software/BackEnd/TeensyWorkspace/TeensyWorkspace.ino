@@ -13,9 +13,27 @@ void setup() {
   const uint16_t FIRETIME = 2500;
   EMatch match = EMatch(FIREPIN, 2500)
 
-  const uint8_t FMVPIN;
+  const uint8_t FMVPIN;   
   const bool FMV_DEF_STATE = False
   solenoid fmv = solenoid(FMVPIN, FMV_DEF_STATE)
+
+  const unit8_t NPSPIN;
+  const bool NPS_DEF_STATE = True
+  solenoid nps = solenoid(NPSPIN, NPS_DEF_STATE)
+
+  const unit8_t OPSPIN;
+  const bool OPS_DEF_STATE = True
+  solenoid ops = solenoid(OPSPIN, OPS_DEF_STATE)
+
+  const unit8_t GBSPIN;
+  const bool GBS_DEF_STATE = False
+  solenoid gps = solenoid(GBSPIN, GBS_DEF_STATE)
+
+  const unit8_t OMVPIN;
+  const bool OMV_DEF_STATE = False
+  solenoid omv = solenoid(OMVPIN, OMV_DEF_STATE)
+
+  const
 }
 
 void loop() {
