@@ -15,7 +15,7 @@ void setup() {
 
   const uint8_t FMVPIN;
   const bool FMV_DEF_STATE = False
-  solenoid nps = solenoid(FMVPIN, FMV_DEF_STATE)
+  solenoid fmv = solenoid(FMVPIN, FMV_DEF_STATE)
 }
 
 void loop() {
