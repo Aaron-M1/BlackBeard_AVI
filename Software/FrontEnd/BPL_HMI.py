@@ -17,6 +17,10 @@
 # Todo:
 # 1. Add the Radial Valves and Sparkline Graphs to the right panel that CJ was referring to in Discord.
 
+# Notes:
+# Manual Mode:
+# Open / Close Values howeve freely you want we already have that
+
 from __future__ import annotations
 import random
 import socket
