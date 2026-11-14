@@ -1,4 +1,4 @@
-#include "EMatch.h"
+#include "e_match.hpp"
 
 
 /*-------------------------------------------------------
@@ -10,9 +10,10 @@ Creates an EMatch object to use in foreign files
 
 EMatch::EMatch(uint8_t firePin, uint16_t fireTimeMs){
     _firePin = firePin;
-    _fireTimeMs = min(fireTimeMs, (unit16_t)3000);
+    _fireTimeMs = min(fireTimeMs, (uint16_t)3000);
     _firing = false;
     _fireStart = 0;
+    begin();
 }
     
 
