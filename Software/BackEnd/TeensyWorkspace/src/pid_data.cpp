@@ -10,8 +10,8 @@ See P&ID.jpeg in drive for more info
 pid_data::pid_data(void) {
 
         //Solenoid valves
-        nps_open = false; // Defaults to open
-        ops_open = false; // Defaults to open
+        nps_open = true; // Defaults to open
+        ops_open = true; // Defaults to open
         gbs_open = false; // Defaults to closed
         fmv_open = false; // Defaults to closed
         omv_open = false; // Defaults to closed
