@@ -20,6 +20,10 @@
 # 2. Make it so that send strings to the Teensy instead of just floats
 #    > the strings will be read by the backend so that it can be used to control the valves and other things
 
+# Notes:
+# Manual Mode:
+# Open / Close Values howeve freely you want we already have that
+
 from __future__ import annotations
 import random
 import socket
@@ -87,7 +91,6 @@ class ValveState:
   def reset(self) -> None:
     for f in fields(self):
       setattr(self, f.name, False)
-
 
 @dataclass
 class TelemetryData:
