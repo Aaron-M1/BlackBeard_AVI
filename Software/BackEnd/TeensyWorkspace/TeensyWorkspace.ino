@@ -33,7 +33,20 @@ void setup() {
   const bool OMV_DEF_STATE = False;
   solenoid omv = solenoid(OMVPIN, OMV_DEF_STATE);
 
-  const
+  const int P1PIN;
+  pressure_transducer p1 = pressure_transducer(P1PIN);
+
+  const int P2PIN;
+  pressure_transducer p2 = pressure_transducer(P2PIN);
+
+  const int P3PIN;
+  pressure_transducer p3 = pressure_transducer(P3PIN);
+
+  const int P4PIN;
+  pressure_transducer p4 = pressure_transducer(P4PIN);
+
+  const int P5PIN;
+  pressure_transducer p5 = pressure_transducer(P5PIN);
 }
 
 void loop() {
