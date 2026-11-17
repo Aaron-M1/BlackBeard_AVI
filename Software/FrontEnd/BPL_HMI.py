@@ -15,7 +15,10 @@
 # Standard Libraries (No installation required)
 
 # Todo:
-# 1. Add the Radial Valves and Sparkline Graphs to the right panel that CJ was referring to in Discord.
+# 1. Add the Sparkline Graphs to the right panel that CJ was referring to in Discord.
+#  // this is already done in a way but it needs revisions
+# 2. Make it so that send strings to the Teensy instead of just floats
+#    > the strings will be read by the backend so that it can be used to control the valves and other things
 
 # Notes:
 # Manual Mode:
@@ -36,6 +39,7 @@ from pathlib import Path
 from tkinter import messagebox
 import cv2
 from PIL import Image, ImageDraw, ImageTk
+from collections import deque
 
 # =============================================================================
 # Configuration
@@ -49,6 +53,9 @@ PROGRAM_DEBUG = True
 PROGRAM_START = time.perf_counter()
 TELEMETRY_REFRESH_MS = 100  # how often the on-screen readings refresh
 DESIGN_W, DESIGN_H = 1400, 850
+SPARK_POINTS = 100   # number of samples that is saved on a sparkline graph, 100points*100ms = 10s
+SPARK_W, SPARK_H = 110, 22
+SPARK_FILL_ALPHA = 0.25
 TEXT_BOOST = 1.3  # makes all P&ID text, symbols and valve boxes this much bigger
 
 # Window / diagram colors
@@ -157,6 +164,27 @@ SENSORS: dict[str, tuple[str, str, str]] = {
     "P5": ("oxi_c_press",     "Oxidizer Chamber",       "PSI"),
 }
 
+SENSOR_THRESHOLDS: dict[str, tuple[float, float]] = {
+    "P1": (   10,        20),
+    "P2": (   10,        20),
+    "P3": (   10,        20),
+    "P4": (   10,        20),
+    "P5": (   10,        20),
+}
+
+def threshold_color(tag: str, value: float) -> str:
+  red_below, green_from = SENSOR_THRESHOLDS.get(tag, (10, 20))
+  if value < red_below:
+    return COLOR_CLOSED
+  if value < green_from:
+    return COLOR_WARN
+  return COLOR_OPEN
+
+def blend_color(fg_hex: str, bg_hex: str, alpha: float) -> str:
+  """Fake transparency: mix fg over bg. alpha=0 gives bg, alpha=1 gives fg."""
+  fg = [int(fg_hex[i:i + 2], 16) for i in (1, 3, 5)]
+  bg = [int(bg_hex[i:i + 2], 16) for i in (1, 3, 5)]
+  return "#%02x%02x%02x" % tuple(round(b + (f - b) * alpha) for f, b in zip(fg, bg))
 
 def get_valve(key: str) -> bool:
   return getattr(valves, VALVE_LAYOUT[key][0])
@@ -169,6 +197,9 @@ def set_valve(key: str, is_open: bool) -> None:
 def format_reading(tag: str) -> str:
   field, _desc, unit = SENSORS[tag]
   return f"{getattr(telemetry, field):.1f} {unit}"
+
+def get_reading_value(tag: str) -> float:
+  return getattr(telemetry, SENSORS[tag][0])
 
 # =============================================================================
 # File system
@@ -407,6 +438,54 @@ def settings_status(parent) -> tk.Label:
   lbl.pack(anchor="w", padx=10)
   return lbl
 
+class Sparkline(tk.Canvas):
+  """Tiny scrolling line graph with a translucent fill. Call push(value) to add a sample."""
+
+  def __init__(self, parent, width=SPARK_W, height=SPARK_H, max_points=SPARK_POINTS,
+               color=COLOR_READING, color_fn=None, min_span=1.0, **kw):
+    super().__init__(parent, width=width, height=height, bg=COLOR_PANEL,
+                     highlightthickness=0, **kw)
+    self.w, self.h, self.pad = width, height, 3
+    self.min_span = min_span          # smallest range shown, so tiny noise isn't blown up
+    self.color_fn = color_fn          # optional: value -> color (used for the threshold colors)
+    self.cur_color = None
+    self.data = deque(maxlen=max_points)
+    self.step = (width - 2 * self.pad) / (max_points - 1)
+    # Create the fill first so the line and dot are drawn on top of it
+    self.fill = self.create_polygon(0, 0, 0, 0, 0, 0, outline="")
+    self.line = self.create_line(0, 0, 0, 0, width=1.5)
+    self.dot = self.create_oval(0, 0, 0, 0, outline="")
+    self._set_color(color)
+
+  def _set_color(self, color: str) -> None:
+    if color == self.cur_color:       # only touch the canvas when the color actually changes
+      return
+    self.cur_color = color
+    self.itemconfig(self.line, fill=color)
+    self.itemconfig(self.dot, fill=color)
+    self.itemconfig(self.fill, fill=blend_color(color, COLOR_PANEL, SPARK_FILL_ALPHA))
+
+  def push(self, value: float) -> None:
+    self.data.append(value)
+    if self.color_fn:
+      self._set_color(self.color_fn(value))
+    n = len(self.data)
+    if n < 2:
+      return
+    lo, hi = min(self.data), max(self.data)
+    span = max(hi - lo, self.min_span)
+    lo = (hi + lo) / 2 - span / 2     # center the data when the range is tiny
+    pts = []
+    for i, v in enumerate(self.data):
+      x = self.w - self.pad - (n - 1 - i) * self.step   # newest sample at the right edge
+      y = self.h - self.pad - (v - lo) / span * (self.h - 2 * self.pad)
+      pts += [x, y]
+    self.coords(self.line, *pts)
+    # Fill = the line's points, then down to the bottom edge and back to the start
+    self.coords(self.fill, *pts, pts[-2], self.h, pts[0], self.h)
+    x, y = pts[-2], pts[-1]
+    self.coords(self.dot, x - 2, y - 2, x + 2, y + 2)
+    
 class PIDCanvas(tk.Canvas):
   """Native P&ID with live sensor readings and a status + toggle box per valve.
 
@@ -829,6 +908,7 @@ def launch_ui() -> None:
   sensor_grid = tk.Frame(sidebar, bg=COLOR_PANEL)
   sensor_grid.pack(anchor="w", padx=10, pady=(2, 10), fill="x")
   sensor_labels: dict[str, tk.Label] = {}
+  sparklines: dict[str, Sparkline] = {}
   for row, (tag, (_field, desc, _unit)) in enumerate(SENSORS.items()):
     tk.Label(sensor_grid, text=tag, fg="#ffffff", bg=COLOR_PANEL, width=3, anchor="w",
              font=("Consolas", 9, "bold")).grid(row=row, column=0, sticky="w")
@@ -838,6 +918,9 @@ def launch_ui() -> None:
                      font=("Consolas", 9, "bold"))
     value.grid(row=row, column=2, sticky="e")
     sensor_labels[tag] = value
+    spark = Sparkline(sensor_grid, color_fn=lambda v, t=tag: threshold_color(t, v))
+    spark.grid(row=row, column=3, sticky="e", padx=(8, 0), pady=1)
+    sparklines[tag] = spark
   sensor_grid.columnconfigure(1, weight=1)
 
   # Valve summary + legend
@@ -861,6 +944,50 @@ def launch_ui() -> None:
     tk.Label(sidebar, text=f"{tag:<6}{desc}", fg="#6b7280", bg=COLOR_PANEL,
              font=("Consolas", 8), justify="left").pack(anchor="w", padx=10)
 
+  tk.Label(sidebar, text="\nUSER STEPS", fg="#9ca3af", bg=COLOR_PANEL,
+             font=("Consolas", 11, "bold")).pack(anchor="w", padx=10)
+  
+  # Output text box
+  step_box = tk.Text(sidebar, height=10, width=40, bg="#3C3C3F", fg="#d1d5db",
+                     font=("Consolas", 9), relief="solid", bd=1, wrap="word",
+                     state="disabled")
+
+  def on_vent() -> None:
+    step_box.configure(state="normal")
+    step_box.delete("1.0", "end")
+    if vent_btn.cget("relief") == "sunken":          # already showing -> hide it
+      vent_btn.configure(relief="raised")
+    else:                                            # show vent text
+      step_box.insert("1.0", "VENT:\n1. Open NPS, OPS, close GBS, OMV, FMV\n2. Close NPS and OPS once P1, P2, and P5 read ~20.0 psi\n3. Open FMV\n4. Once P3 and P4 read ~20.0 psi, close FMV")
+      vent_btn.configure(relief="sunken")
+      pressurized_btn.configure(relief="raised")     # release the other button
+    step_box.configure(state="disabled")
+
+  def on_pressurized() -> None:
+    step_box.configure(state="normal")
+    step_box.delete("1.0", "end")
+    if pressurized_btn.cget("relief") == "sunken":   # already showing -> hide it
+      pressurized_btn.configure(relief="raised")
+    else:                                            # show pressurized text
+      step_box.insert("1.0", "PRESSURIZED:\n1. Start with all valves closed\n2. P1 at good PSI with less than %5 loss\n(Wait for five minutes)\n3. Open GBS\n4. P2 at good PSI with less than %5 loss\n(Wait five minutes)\n5. Open OMV")
+      pressurized_btn.configure(relief="sunken")
+      vent_btn.configure(relief="raised")            # release the other button
+    step_box.configure(state="disabled")
+
+  vent_btn = tk.Button(sidebar, text="VENT", command=on_vent, bg="#1e3a8a", fg="#ffffff",
+                       activebackground="#1e40af", activeforeground="#ffffff",
+                       relief="raised", bd=3, font=("Consolas", 9, "bold"))
+  vent_btn.pack(anchor="w", padx=10, pady=(2, 10))
+
+  pressurized_btn = tk.Button(sidebar, text="PRESSURIZED", command=on_pressurized,
+                              bg="#aa9a22", fg="#ffffff", activebackground="#c4b22a",
+                              activeforeground="#ffffff", relief="raised", bd=3,
+                              font=("Consolas", 9, "bold"))
+  pressurized_btn.pack(anchor="w", padx=10, pady=(2, 10))
+
+  # packs the box last so it fills the leftover space at the bottom
+  step_box.pack(side="bottom", fill="both", expand=True, padx=10, pady=(0, 10))
+
   def refresh_valve_summary() -> None:
     for tag, lbl in valve_labels.items():
       is_open = get_valve(tag)
@@ -872,10 +999,34 @@ def launch_ui() -> None:
     pid_canvas.update_readings()
     for tag, lbl in sensor_labels.items():
       lbl.config(text=format_reading(tag))
+      sparklines[tag].push(get_reading_value(tag))
     root.after(TELEMETRY_REFRESH_MS, poll_telemetry)
 
   refresh_valve_summary()
   poll_telemetry()
+
+  # --- Demo: fake sensor data so the sparklines have something to draw ---
+  sim_job = None
+
+  def simulation_step() -> None:
+    nonlocal sim_job
+    for field, _desc, _unit in SENSORS.values():
+      cur = getattr(telemetry, field)
+      if cur == 0.0:
+        cur = random.uniform(0, 40)
+      new = cur + (300.0 - cur) * 0.02 + random.uniform(-8, 8)
+      setattr(telemetry, field, max(0.0, new))
+    sim_job = root.after(TELEMETRY_REFRESH_MS, simulation_step)
+
+  def toggle_simulation() -> None:
+    nonlocal sim_job
+    if sim_job is None:
+      tools_menu.entryconfig(2, label="Simulation Mode (ON)")
+      simulation_step()
+    else:
+      root.after_cancel(sim_job)
+      sim_job = None
+      tools_menu.entryconfig(2, label="Simulation Mode")
 
   # --- Manual control + Settings window ---
   def apply_manual_control(enabled: bool) -> None:
@@ -1036,7 +1187,7 @@ def launch_ui() -> None:
   tools_menu = tk.Menu(menubar, tearoff=0)
   tools_menu.add_command(label="Teensy Connector")
   tools_menu.add_command(label="Test Connection", command=test_connection_thread)
-  tools_menu.add_command(label="Simulation Mode")
+  tools_menu.add_command(label="Simulation Mode", command=toggle_simulation)
   menubar.add_cascade(label="Tools", menu=tools_menu)
 
   help_menu = tk.Menu(menubar, tearoff=0)
