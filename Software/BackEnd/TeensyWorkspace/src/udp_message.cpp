@@ -1,6 +1,9 @@
 #include "udp_message.hpp"
 
-udp_message::udp_message(std::string& name, float value) {
+udp_message::udp_message() : name(""), value(0.0f) {
+}
+
+udp_message::udp_message(const std::string& name, float value) {
     this->name = name;
     this->value = value;
 }
@@ -8,15 +11,19 @@ udp_message::udp_message(std::string& name, float value) {
 udp_message::~udp_message(void) {
 }
 
-std::string udp_message::getName() {
+std::string udp_message::getName() const {
     return name;
 }
 
-float udp_message::getValue() {
+float udp_message::getValue() const {
     return value;
 }
 
-void udp_message::setName(std::string& name) {
+bool udp_message::isValid() const {
+    return !name.empty();
+}
+
+void udp_message::setName(const std::string& name) {
     this->name = name;
 }
 

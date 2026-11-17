@@ -1,4 +1,6 @@
 #include "udp_server.hpp"
+#include <string.h>
+#include <strings.h>   // strcasecmp
 
 /*-------------------------------------------------------
 @BPL-2, Avionics
@@ -28,7 +30,7 @@ udp_message udp_server::update() //Must run in the loop func, checks for incomin
 {
     // One UDP packet is one whole message, so no framing buffer is needed
     int size = udp.parsePacket();
-    if (size <= 0) return udp_message("", 0.0f);
+    if (size <= 0) return udp_message();
 
     // Remember who sent it so send() knows where to stream data
     peerIp = udp.remoteIP();
@@ -36,17 +38,17 @@ udp_message udp_server::update() //Must run in the loop func, checks for incomin
     peerKnown = true;
 
     char buf[64];
-    int n = udp.read(buf, sizeof(buf) - 1);
-    if (n <= 0) return;
+    int n = udp.read(reinterpret_cast<uint8_t*>(buf), sizeof(buf) - 1);
+    if (n <= 0) return udp_message();
     buf[n] = '\0';
 
     char *nl = strpbrk(buf, "\r\n");
     if (nl) *nl = '\0';
 
-    std::string name = "blank";
+    std::string name;
     float value = 0.0f;
 
-    handleLine(buf, name, value);
+    if (!handleLine(buf, name, value)) return udp_message();   // malformed -> invalid message
     return udp_message(name, value);
 }
 
@@ -63,13 +65,27 @@ bool udp_server::hasPeer() //checks if someone is on the line
     return peerKnown;
 }
 
-void udp_server::handleLine(char *line, std::string& name, float& value) //Parses incoming packets and executes commands, or sends an ack if the command is a setpoint
+bool udp_server::handleLine(char *line, std::string& name, float& value) //Parses "NAME:VALUE" lines; returns false if malformed
 {
     char *colon = strchr(line, ':');
-    if (!colon) return udp_message("", 0.0f); // malformed
+    if (!colon) {
+        // Only the whole-packet commands are valid without a colon
+        if (strcasecmp(line, "SafeState") == 0 || strcasecmp(line, "IgnitionState") == 0) {
+            name = line;
+            value = 0.0f;
+            return true;
+        }
+        return false;
+    }
+    if (colon == line) return false; // empty name
     *colon = '\0';
-    std::string name = line;
-    float value = atof(colon + 1);
+    name = line;
+
+    const char *action = colon + 1;
+    if      (strcasecmp(action, "OPEN")  == 0) value = 1.0f;
+    else if (strcasecmp(action, "CLOSE") == 0) value = 0.0f;
+    else                                       value = atof(action);   // numeric values, e.g. setpoint
+    return true;
 
     // if (name == "setpoint") {
     //     setpoint = value;

@@ -10,11 +10,16 @@ solenoid::solenoid(uint8_t pin, bool default_state)
     defaultState = default_state;
     SOLENOID_PIN = pin;
 
+    pinMode(SOLENOID_PIN, OUTPUT);
     this->setState(defaultState);
 
 }
 
-void solenoid::setSolenoid()
+solenoid::~solenoid(void)
+{
+}
+
+void solenoid::togglesolenoid()
 {
   if (isOpen == false){
     digitalWrite(SOLENOID_PIN, HIGH);

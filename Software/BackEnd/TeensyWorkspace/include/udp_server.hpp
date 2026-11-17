@@ -6,7 +6,8 @@
 /*-------------------------------------------------------
 @BPL-2, Avionics
 This is the udp protocol header file
-Creates a udp object that exchanges "name,value\n" packets with a PC client
+Creates a udp object that exchanges "name:value\n" packets with a PC client
+(value may be a number, or OPEN / CLOSE for solenoids)
 ----------------------------------------------------------*/
 
 class udp_server {
@@ -26,7 +27,7 @@ class udp_server {
         bool hasPeer();
 
     private:
-        void handleLine(char *line, std::string& name, float& value);
+        bool handleLine(char *line, std::string& name, float& value);
 
         qindesign::network::EthernetUDP udp;
         uint16_t localPort;
