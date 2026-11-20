@@ -45,6 +45,9 @@ class pid_data {
         double getPressure3();
         double getPressure4();
         double getPressure5();
+
+        //STRING REPRESENTATION
+        std::string toString();
     private:
         //VALVE BOOLEANS
         bool nps_open; //Nitrous Propellant Solenoid

@@ -56,7 +56,6 @@ solenoid omv = solenoid(OMVPIN, OMV_DEF_STATE);
 const uint16_t UDP_PORT = 5000;   // TODO: set to the real port
 udp_server server = udp_server(UDP_PORT);
 
-
 struct SolEntry { const char *name; solenoid *sol; };
 SolEntry sols[] = {
   {"FMV", &fmv},
@@ -65,25 +64,6 @@ SolEntry sols[] = {
   {"GBS", &gbs},
   {"OMV", &omv},
 };
-
-solenoid* findSolenoid(const char *name) {
-  for (auto &e : sols)
-    if (strcasecmp(e.name, name) == 0) return e.sol;
-  return nullptr;
-}
-
-// Applies one parsed "NAME:OPEN|CLOSE" message (OPEN -> 1.0, CLOSE -> 0.0)
-void handleMessage(const udp_message &msg) {
-  if (!msg.isValid()) return;
-
-  std::string name = msg.getName();
-  if (strcasecmp(name.c_str(), "SafeState") == 0)     { safe_state();     return; }
-  if (strcasecmp(name.c_str(), "IgnitionState") == 0) { ignition_state(); return; }
-
-  solenoid *s = findSolenoid(name.c_str());
-  if (!s) return;                       // unknown solenoid -> ignore
-  s->setState(msg.getValue() != 0.0f);
-}
 
 const int P1PIN;
 pressure_transducer p1 = pressure_transducer(P1PIN);
@@ -100,28 +80,73 @@ pressure_transducer p4 = pressure_transducer(P4PIN);
 const int P5PIN;
 pressure_transducer p5 = pressure_transducer(P5PIN);
 
+
+
 void setup() {
-  server.begin(TEENSY_IP, SUBNET_MASK, GATEWAY)
+  server.begin(TEENSY_IP, SUBNET_MASK, GATEWAY);
 }
 
 void loop() {
   
-  handleMessage(server.update());
-  ignition_update(); 
+  if (!server.hasPeer())
+  {
+    safe_state();
+  }
+  else
+  {
+    handleMessage(server.update());
+    ignition_update(); 
 
-  pid.setFMV(fmv.getState());
-  pid.setNPS(nps.getState());
-  pid.setOPS(ops.getState());
-  pid.setGBS(gbs.getState());
-  pid.setOMV(omv.getState());
+    pid.setFMV(fmv.getState());
+    pid.setNPS(nps.getState());
+    pid.setOPS(ops.getState());
+    pid.setGBS(gbs.getState());
+    pid.setOMV(omv.getState());
 
-  pid.setPressure1(p1.getPressure());
-  pid.setPressure2(p2.getPressure());
-  pid.setPressure3(p3.getPressure());
-  pid.setPressure4(p4.getPressure());
-  pid.setPressure5(p5.getPressure());
+    pid.setPressure1(p1.getPressure());
+    pid.setPressure2(p2.getPressure());
+    pid.setPressure3(p3.getPressure());
+    pid.setPressure4(p4.getPressure());
+    pid.setPressure5(p5.getPressure());
+
+    sendPidData();
+  }
+
 }
 
+// Applies one parsed "NAME:OPEN|CLOSE" message (OPEN -> 1.0, CLOSE -> 0.0)
+void handleMessage(const udp_message &msg) {
+  if (!msg.isValid()) return;
+
+  std::string name = msg.getName();
+  if (strcasecmp(name.c_str(), "SafeState") == 0)     { safe_state();     return; }
+  if (strcasecmp(name.c_str(), "IgnitionState") == 0) { ignition_state(); return; }
+
+  solenoid *s = findSolenoid(name.c_str());
+  if (!s) return;                       // unknown solenoid -> ignore
+  s->setState(msg.getValue() != 0.0f);
+}
+
+solenoid* findSolenoid(const char *name) {
+  for (auto &e : sols)
+    if (strcasecmp(e.name, name) == 0) return e.sol;
+  return nullptr;
+}
+
+// Sends every P&ID value as its own "NAME,value" packet (valves: 1 = open, 0 = closed)
+void sendPidData() {
+  server.send("FMV", pid.getFMV() ? 1.0f : 0.0f);
+  server.send("NPS", pid.getNPS() ? 1.0f : 0.0f);
+  server.send("OPS", pid.getOPS() ? 1.0f : 0.0f);
+  server.send("GBS", pid.getGBS() ? 1.0f : 0.0f);
+  server.send("OMV", pid.getOMV() ? 1.0f : 0.0f);
+
+  server.send("P1", pid.getPressure1());
+  server.send("P2", pid.getPressure2());
+  server.send("P3", pid.getPressure3());
+  server.send("P4", pid.getPressure4());
+  server.send("P5", pid.getPressure5());
+}
 
 void ignition_state() {              
   if (ignStep != IGN_IDLE) return;   // ignore a repeat while already running
@@ -132,7 +157,7 @@ void ignition_state() {
 
 void safe_state() {
   ignStep = IGN_IDLE; 
-  match.off()
+  match.off();
   fmv.setDefault();
   nps.setDefault();
   ops.setDefault();

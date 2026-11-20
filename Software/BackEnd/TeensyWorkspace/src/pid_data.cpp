@@ -110,6 +110,23 @@ double pid_data::getPressure5() {
     return pressure_5;
 }
 
+
+std::string pid_data::toString() {
+    std::string s = "pid_data {\n";
+    s += "  NPS open: " + std::string(nps_open ? "true" : "false") + "\n";
+    s += "  OPS open: " + std::string(ops_open ? "true" : "false") + "\n";
+    s += "  GBS open: " + std::string(gbs_open ? "true" : "false") + "\n";
+    s += "  FMV open: " + std::string(fmv_open ? "true" : "false") + "\n";
+    s += "  OMV open: " + std::string(omv_open ? "true" : "false") + "\n";
+    s += "  Pressure 1: " + std::to_string(pressure_1) + "\n";
+    s += "  Pressure 2: " + std::to_string(pressure_2) + "\n";
+    s += "  Pressure 3: " + std::to_string(pressure_3) + "\n";
+    s += "  Pressure 4: " + std::to_string(pressure_4) + "\n";
+    s += "  Pressure 5: " + std::to_string(pressure_5) + "\n";
+    s += "}";
+    return s;
+}
+
 pid_data::~pid_data(void) {
 
 }
